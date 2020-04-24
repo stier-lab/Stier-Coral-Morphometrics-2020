@@ -1,0 +1,113 @@
+---
+title: "Linear regression of corals and inverts"
+author: "Journ Galvan"
+date: "4/23/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir =  "C:/Users/Journ/Documents/Desktop/r_code") 
+```
+
+# Code referenced from lines 83-125 in "Coral Condition Data Preliminary Analysis - Stier Lab Moorea Summer 2019" 
+Author Joseph Curtis, UCSB
+```{r load libraries}
+# Load libraries
+library(tidyverse)
+library(vegan)
+library(reshape)
+```
+
+
+```{r load data}
+# Load data
+branch_width <- read.csv("branchwidth_data.csv")
+coral_pg <- read.csv("galvan_journ_datasheet_v2.csv")
+cafi_surveys <- read.csv("revised_cafi_data_moorea_summer2019_11_27.csv")
+cafi_field <- read.csv("prelim_cafi_counts_moorea_summer2019.csv")
+```
+
+
+```{r visualize data}
+# Visualize data, I added this in to reference variables within dataframe and visualize manipulation of data. 
+head(branch_width)
+head(coral_pg)
+head(cafi_surveys)
+head(cafi_field)
+```
+
+
+# Incorporate CAFI data
+
+```{r uncount}
+# Uncount CAFI data from field experiment
+cafi_field_long <- uncount(cafi_field, count) %>% select(order, coral_id, type, code, cafi_size_mm, known_unknown) %>%
+  separate(coral_id, c("reef", NA), remove = FALSE)
+
+cafi_surveys <- cafi_surveys %>% select(sort, coral_id, type, code, cafi_size_mm, known_unknown) %>%
+  separate(coral_id, c("reef", NA), remove = FALSE)
+```
+
+
+```{r known}
+# Analyze known organisms until further data cleaning
+cafi_combined <- bind_rows(cafi_surveys, cafi_field_long) %>% 
+  filter(known_unknown == "known")
+```
+
+
+```{r richness, abundance, diversity of coral}
+# Calculate CAFI richness, abundance, and diversity (shannon weiner) for each coral
+cafi_summarized <- group_by(cafi_combined, coral_id) %>%
+  summarise(num_cafi = n(), cafi_richness = length(unique(code)), cafi_present = paste(sort(unique(code)), collapse = ";"))
+
+cafi_summarized$sw <- cafi_combined %>% 
+  count(code, coral_id = coral_id) %>% 
+  spread(code,n) %>% 
+  mutate_all(list(~replace_na(.,0))) %>% 
+  select(-coral_id) %>% 
+  diversity(index = "shannon")
+```
+
+
+# Incorporate coral photogrammetry data 
+
+```{r coral_pg}
+# Editor - Journ Galvan
+# Create dataframe "coral dimensions" with the following variables
+coral_dimensions <- coral_pg %>% select(coral_id, row, column, volume_pg, surface_area, interstitial_volume) 
+# Still need to figure out how to delete measurements with 'N/A' Ask Joe
+```
+
+
+# Combine cleaned CAFI data with coral photogrammetry data
+```{r combine cafi with coral}
+# Editor - Journ Galvan
+# Combine cafi_summarized with coral_dimensions
+cafi_coral <- merge(cafi_summarized, coral_dimensions, by ="coral_id")
+dim(cafi_coral)
+# Only 30 rows instead of 60? Ask Joe
+```
+
+
+```{r scatter plot}
+# Editor - Journ Galvan
+# Scatter plot of volume and invert abundance
+plot(num_cafi~volume_pg, data = cafi_coral,
+    xlab = "Coral volume m^(3)", ylab = "CAFI abundance", main = "Coral volume and invert abundance")
+
+# Overlay best fit line on existing plot
+fit <- lm(num_cafi~volume_pg, data = cafi_coral)
+abline(fit,col = "green")
+# Definitely needs working on
+```
+
+
+```{r Trapezid}
+# Calculate Trapezid abundance and richness for each coral
+its_a_trap <- cafi_combined %>% filter(str_detect(code, "^TR"))
+trap_summarized <- group_by(its_a_trap, coral_id) %>%
+  summarise(num_cafi = n(), cafi_richness = length(unique(code)), cafi_present = paste(sort(unique(code)), collapse = ";"))
+```
+
