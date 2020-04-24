@@ -111,3 +111,25 @@ trap_summarized <- group_by(its_a_trap, coral_id) %>%
   summarise(num_cafi = n(), cafi_richness = length(unique(code)), cafi_present = paste(sort(unique(code)), collapse = ";"))
 ```
 
+
+```{r combine}
+# Combine with photogrammetry data
+trap_w_coral_dim <- merge(trap_summarized, coral_dim, by = "coral_id")
+
+trap_w_coral_dim$num_trap <- trap_w_coral_dim$num_cafi %>% replace_na(0) %>% rename("num_trap")
+trap_w_coral_dim$trap_richness <- trap_w_coral_dim$cafi_richness %>% replace_na(0) %>% rename("trap_richness")
+trap_w_coral_dim <- trap_w_coral_dim %>% select(-cafi_richness, -num_cafi)
+```
+
+
+```{r trapezid scatter plot}
+# Scatter plot of volume and trapezid abundance
+plot(num_trap~volume_pg, data = trap_w_coral_dim)
+
+# Overlay best fit line on existing plot
+fit <- lm(num_trap~volume_pg, data = trap_w_coral_dim)
+abline(fit,col = "green")
+# Definitely needs working on
+```
+
+
