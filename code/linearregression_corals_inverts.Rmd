@@ -9,8 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Code referenced from lines 83-125 in "Coral Condition Data Preliminary Analysis - Stier Lab Moorea Summer 2019" 
-Author Joseph Curtis, UCSB
+### Code referenced from lines 83-125 in "Coral Condition Data Preliminary Analysis - Stier Lab Moorea Summer 2019" Author: Joseph Curtis
 ```{r load libraries}
 # Load libraries
 library(here)
@@ -38,7 +37,7 @@ head(cafi_field)
 ```
 
 
-# Incorporate CAFI data
+### Incorporate CAFI data
 
 ```{r uncount}
 # Uncount CAFI data from field experiment
@@ -71,7 +70,7 @@ cafi_summarized$sw <- cafi_combined %>%
 ```
 
 
-# Incorporate coral photogrammetry data 
+### Incorporate coral photogrammetry data 
 
 ```{r coral_pg}
 # Editor - Journ Galvan
@@ -81,7 +80,7 @@ coral_dim <- coral_pg %>% select(coral_id, row, column, volume_pg, surface_area,
 ```
 
 
-# Combine cleaned CAFI data with coral photogrammetry data
+### Combine cleaned CAFI data with coral photogrammetry data
 ```{r combine cafi with coral}
 # Editor - Journ Galvan
 # Combine cafi_summarized with coral_dimensions
@@ -102,8 +101,9 @@ fit <- lm(num_cafi~volume_pg, data = cafi_coral)
 abline(fit,col = "green")
 # Definitely needs working on
 ```
+### Question for Joe: How to change coral id's from MAT, MRB, HAU etc. to FE in dataframe "cafi_summarized" column "coral_id"?
 
-
+### Dataframe of trapezid abundance
 ```{r Trapezid}
 # Calculate Trapezid abundance and richness for each coral
 its_a_trap <- cafi_combined %>% filter(str_detect(code, "^TR"))
@@ -111,7 +111,7 @@ trap_summarized <- group_by(its_a_trap, coral_id) %>%
   summarise(num_cafi = n(), cafi_richness = length(unique(code)), cafi_present = paste(sort(unique(code)), collapse = ";"))
 ```
 
-
+### Combine trapezid with coral
 ```{r combine}
 # Combine with photogrammetry data
 trap_w_coral_dim <- merge(trap_summarized, coral_dim, by = "coral_id")
