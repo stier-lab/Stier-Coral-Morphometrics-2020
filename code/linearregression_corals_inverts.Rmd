@@ -27,13 +27,11 @@ cafi_surveys <- read.csv(here("cafi_data/revised_cafi_data_moorea_summer2019_11_
 cafi_field <- read.csv(here("cafi_data/prelim_cafi_counts_moorea_summer2019.csv"))
 ```
 
-
-```{r visualize data}
-# Visualize data, I added this in to reference variables within dataframe and visualize manipulation of data. 
-head(branch_width)
-head(coral_pg)
-head(cafi_surveys)
-head(cafi_field)
+st
+```{r convert}
+### Convert "factor" to "numeric"
+coral_pg$volume_pg <- as.numeric(as.character(coral_pg$volume_pg))
+#lapply(coral_pg)
 ```
 
 
@@ -76,7 +74,7 @@ cafi_summarized$sw <- cafi_combined %>%
 # Editor - Journ Galvan
 # Create dataframe "coral dimensions" with the following variables
 coral_dim <- coral_pg %>% select(coral_id, row, column, volume_pg, surface_area, interstitial_volume) 
-# Still need to figure out how to delete measurements with 'N/A' Ask Joe
+#lapply(cafi_coral)
 ```
 
 
@@ -101,7 +99,7 @@ fit <- lm(num_cafi~volume_pg, data = cafi_coral)
 abline(fit,col = "green")
 # Definitely needs working on
 ```
-### Question for Joe: How to change coral id's from MAT, MRB, HAU etc. to FE in dataframe "cafi_summarized" column "coral_id"?
+
 
 ### Dataframe of trapezid abundance
 ```{r Trapezid}
@@ -129,7 +127,6 @@ plot(num_trap~volume_pg, data = trap_w_coral_dim)
 # Overlay best fit line on existing plot
 fit <- lm(num_trap~volume_pg, data = trap_w_coral_dim)
 abline(fit,col = "green")
-# Definitely needs working on
 ```
 
 
