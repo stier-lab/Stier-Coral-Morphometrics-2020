@@ -97,7 +97,6 @@ plot(num_cafi~volume_pg, data = cafi_coral,
 # Overlay best fit line on existing plot
 fit <- lm(num_cafi~volume_pg, data = cafi_coral)
 abline(fit,col = "green")
-# Definitely needs working on
 ```
 
 
