@@ -14,11 +14,11 @@ FE-POC01,52,2,top,
 FE-POC01,38.6,3,base,
 FE-POC01,61.8,4,mid ,
 FE-POC01,3.46,5,mid ,
-FE-POC09,N/A,1,N/A,poor quality
-FE-POC09,N/A,2,N/A,poor quality
-FE-POC09,N/A,3,N/A,poor quality
-FE-POC09,N/A,4,N/A,poor quality
-FE-POC09,N/A,5,N/A,poor quality
+FE-POC09,NA,1,NA,poor quality
+FE-POC09,NA,2,NA,poor quality
+FE-POC09,NA,3,NA,poor quality
+FE-POC09,NA,4,NA,poor quality
+FE-POC09,NA,5,NA,poor quality
 FE-POC30,36,1,base,
 FE-POC30,24.3,2,top,
 FE-POC30,17.7,3,base,
@@ -194,11 +194,11 @@ FE-POC60,16.1,2,base,
 FE-POC60,51.7,3,top,
 FE-POC60,32.7,4,mid,
 FE-POC60,30.1,5,mid,
-FE-POC03,N/A,1,N/A,poor quality
-FE-POC03,N/A,2,N/A,poor quality
-FE-POC03,N/A,3,N/A,poor quality
-FE-POC03,N/A,4,N/A,poor quality
-FE-POC03,N/A,5,N/A,poor quality
+FE-POC03,NA,1,NA,poor quality
+FE-POC03,NA,2,NA,poor quality
+FE-POC03,NA,3,NA,poor quality
+FE-POC03,NA,4,NA,poor quality
+FE-POC03,NA,5,NA,poor quality
 FE-POC39,10.7,1,base,
 FE-POC39,9.14,2,base,
 FE-POC39,15.5,3,top,
