@@ -23,6 +23,7 @@ library(reshape)
 # Load data
 branch_width <- read.csv(here("photogrammetry_data/branchwidth_data.csv"))
 coral_pg <- read.csv(here("photogrammetry_data/galvan_journ_datasheet_v2.csv"))
+coral_field <- read.csv(here("photogrammetry_data/field_experiment_colony_measurements_moorea_summer2019.csv"))
 cafi_surveys <- read.csv(here("cafi_data/revised_cafi_data_moorea_summer2019_11_27.csv"))
 cafi_field <- read.csv(here("cafi_data/prelim_cafi_counts_moorea_summer2019.csv"))
 ```

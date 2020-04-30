@@ -1,0 +1,71 @@
+coral_id,position,branch_width,cafi,size_class,length_field,width_field,height_field,circ_field,volume_field,notes
+FE-POC57,1-Jan,wide,CAFI,38,44,30,31,112,21425.6619,
+FE-POC04,2-Jan,wide,CAFI,29,28,20,20,73,5864.306287,
+FE-POC29,3-Jan,tight,empty,41,38,29,25,101,14425.14627,
+FE-POC43,4-Jan,wide,CAFI,14,15,15,15,48,1767.145868,glued on side
+FE-POC23,5-Jan,wide,CAFI,20,17,15,13,51,1735.729941,
+FE-POC01,6-Jan,wide,empty,44,44,43,42,135,41607.2531,
+FE-POC09,7-Jan,tight,empty,26,28,22,17,77,5483.126378,
+FE-POC37,8-Jan,wide,CAFI,44,45,35,30,108,24740.04215,
+FE-POC30,9-Jan,wide,empty,20,20,18,12,57,2261.946711,
+FE-POC48,10-Jan,wide,empty,32,33,24,19,81,7879.114375,
+FE-POC28,11-Jan,tight,CAFI,5,7,5,5,17,91.62978573,
+FE-POC13,12-Jan,tight,CAFI,20,22,22,16,64,4054.748918,
+FE-POC18,13-Jan,tight,empty,17,14,13,10,43,952.9497716,
+FE-POC56,14-Jan,tight,CAFI,35,31,29,23,97,10826.45188,
+FE-POC46,15-Jan,wide,CAFI,26,27,22,17,76,5287.300436,
+FE-POC05,1-Feb,tight,CAFI,11,10,10,6,29,314.1592654,
+FE-POC22,2-Feb,wide,empty,14,18,17,11,48,1762.433479,
+FE-POC20,3-Feb,wide,CAFI,41,47,37,27,126,24584.53331,
+FE-POC52,4-Feb,wide,CAFI,11,11,12,8,36,552.920307,
+FE-POC35,5-Feb,tight,CAFI,17,15,12,11,42,1036.725576,
+FE-POC54,6-Feb,tight,CAFI,26,25,24,20,72,6283.185307,
+FE-POC42,7-Feb,wide,empty,26,27,24,20,78,6785.840132,affixed on side
+FE-POC16,8-Feb,tight,empty,20,23,20,15,64,3612.831552,
+FE-POC07,9-Feb,wide,CAFI,47,50,37,23,133,22279.1279,2nd colony on base
+FE-POC59,10-Feb,tight,empty,44,42,37,30,126,24410.17492,
+FE-POC17,11-Feb,tight,CAFI,44,47,33,29,119,23550.94933,
+FE-POC11,12-Feb,wide,empty,17,19,16,14,53,2228.436389,
+FE-POC40,13-Feb,tight,empty,11,12,12,8,36,603.1857895,
+FE-POC33,14-Feb,tight,empty,29,29,25,24,81,9110.618695,
+FE-POC51,15-Feb,tight,CAFI,8,9,9,5,28,212.0575041,
+FE-POC27,1-Mar,wide,empty,11,11,10,9,33,518.3627878,
+FE-POC21,2-Mar,wide,CAFI,17,15,10,10,38,785.3981634,
+FE-POC02,3-Mar,wide,empty,5,7,7,9,21,230.90706,
+FE-POC45,4-Mar,tight,empty,35,32,25,17,88,7120.943348,
+FE-POC15,5-Mar,tight,CAFI,23,23,22,15,68,3974.114707,
+FE-POC08,6-Mar,tight,CAFI,38,29,25,15,95,5694.136685,
+FE-POC41,7-Mar,wide,empty,47,35,31,28,98,15906.9308,
+FE-POC55,8-Mar,tight,CAFI,29,27,26,16,79,5881.061448,
+FE-POC10,9-Mar,wide,empty,8,10,7,10,28,366.5191429,
+FE-POC58,10-Mar,tight,CAFI,47,49,35,19,124,17061.4661,
+FE-POC47,11-Mar,tight,empty,38,39,34,21,108,14580.13151,
+FE-POC31,12-Mar,wide,empty,38,36,28,24,96,12666.90158,"tips were pale at time of measurement, recovered by final survey; affixed using excessive z-spar"
+FE-POC25,13-Mar,tight,empty,8,11,9,6,28,311.0176727,
+FE-POC12,14-Mar,wide,empty,23,23,19,20,65,4576.253299,"affixed on side, some spots looked ""bad"" at time of measurement, recovered by final survey"
+FE-POC44,15-Mar,wide,CAFI,8,10,8,7,25,293.2153143,
+FE-POC53,1-Apr,wide,CAFI,23,23,21,12,65,3034.778503,
+FE-POC34,2-Apr,wide,empty,41,38,34,22,111,14882.7716,
+FE-POC49,3-Apr,wide,CAFI,5,7,5,5,17,91.62978573,
+FE-POC06,4-Apr,tight,CAFI,41,35,24,17,94,7476.990516,
+FE-POC38,5-Apr,tight,empty,32,31,25,21,92,8521.570073,z-spar separated some at base
+FE-POC32,6-Apr,wide,CAFI,35,32,30,29,98,14576.98991,
+FE-POC14,7-Apr,wide,CAFI,32,28,21,20,79,6157.521601,
+FE-POC26,8-Apr,tight,empty,5,7,7,5,21,128.2817,
+FE-POC60,9-Apr,wide,empty,29,32,33,19,101,10505.48583,
+FE-POC24,10-Apr,tight,empty,47,47,40,25,122,24609.14245,
+FE-POC03,11-Apr,tight,empty,14,11,13,10,39,748.7462491,
+FE-POC39,12-Apr,tight,empty,23,22,23,14,71,3709.173726,
+FE-POC36,13-Apr,tight,CAFI,14,13,12,8,40,653.4512719,
+FE-POC50,14-Apr,wide,empty,35,35,26,24,95,11435.39726,
+FE-POC19,15-Apr,tight,CAFI,32,33,30,20,98,10367.25576,
+FE-POC03D,NA,tight,empty,14,11,13,10,39,748.7462491,"estimated based on replacement colony, original unmeasured"
+FE-POC09D,NA,tight,empty,26,28,22,17,77,5483.126378,"estimated based on replacement colony, original unmeasured"
+FE-POC10D,NA,wide,empty,8,10,7,10,28,366.5191429,"estimated based on replacement colony, original unmeasured"
+FE-POC11D,NA,wide,empty,17,19,16,14,53,2228.436389,"estimated based on replacement colony, original unmeasured"
+FE-POC16D,NA,tight,empty,20,23,20,15,64,3612.831552,"estimated based on replacement colony, original unmeasured"
+FE-POC18D,NA,tight,empty,17,14,13,10,43,952.9497716,"estimated based on replacement colony, original unmeasured"
+FE-POC24D,NA,tight,empty,47,47,40,25,122,24609.14245,"estimated based on replacement colony, original unmeasured"
+FE-POC25D,NA,tight,empty,8,11,9,6,28,311.0176727,"estimated based on replacement colony, original unmeasured"
+FE-POC31D,NA,wide,empty,38,36,28,24,96,12666.90158,"estimated based on replacement colony, original unmeasured"
+FE-POC39D,NA,tight,empty,23,22,23,14,71,3709.173726,"estimated based on replacement colony, original unmeasured"
