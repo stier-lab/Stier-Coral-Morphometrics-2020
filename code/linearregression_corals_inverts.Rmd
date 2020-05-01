@@ -138,7 +138,7 @@ cafi_coralwide <- cafi_coral %>% filter(branch == "wide")
 plot(num_cafi~avg_w_mm, data = cafi_coralwide,
     xlab = "average branch width (m)", xlim = c(0,1 + max(cafi_coral$avg_w_mm, na.rm = TRUE)),
     ylab = "CAFI abundance", ylim = c(0, 1 + max(cafi_coral$num_cafi)), 
-    main = "Wide coral volume and invert abundance")
+    main = "Wide avg. branch distance and invert abundance")
 # Overlay best fit line on existing plot
 fit <- lm(num_cafi~avg_w_mm, data = cafi_coralwide)
 abline(fit,col = "green")
@@ -148,7 +148,7 @@ cafi_coraltight <- cafi_coral %>% filter(branch == "tight")
 plot(num_cafi~avg_w_mm, data = cafi_coraltight,
     xlab = "average branch width (m)", xlim = c(0, 1 + max(cafi_coral$avg_w_mm, na.rm = TRUE)),
     ylab = "CAFI abundance", ylim = c(0, 1 + max(cafi_coral$num_cafi)), 
-    main = "Tight coral volume and invert abundance")
+    main = "Tight avg. branch distance and invert abundance")
 # Overlay best fit line on existing plot
 fit <- lm(num_cafi~avg_w_mm, data = cafi_coraltight)
 abline(fit,col = "green")
