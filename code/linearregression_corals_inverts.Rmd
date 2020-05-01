@@ -95,6 +95,26 @@ cafi_coral <- merge(cafi_summarized, coral_dim, by ="coral_id")
 
 ### Visualize invertebrate data
 ```{r}
+# Scatter plot of wide volume and invert abundance
+cafi_coralwide <- cafi_coral %>% filter(branch == "wide")
+plot(num_cafi~volume_pg, data = cafi_coralwide,
+    xlab = "Coral volume m^(3)", xlim = c(0,0.0156),
+    ylab = "CAFI abundance", ylim = c(0,50), 
+    main = "Wide coral volume and invert abundance")
+# Overlay best fit line on existing plot
+fit <- lm(num_cafi~volume_pg, data = cafi_coralwide)
+abline(fit,col = "green")
+
+# Scatter plot of tight volume and invert abundance
+cafi_coraltight <- cafi_coral %>% filter(branch == "tight")
+plot(num_cafi~volume_pg, data = cafi_coraltight,
+    xlab = "Coral volume m^(3)", xlim = c(0,0.0156),
+    ylab = "CAFI abundance", ylim = c(0,50), 
+    main = "Tight coral volume and invert abundance")
+# Overlay best fit line on existing plot
+fit <- lm(num_cafi~volume_pg, data = cafi_coraltight)
+abline(fit,col = "green")
+
 # Scatter plot of volume and invert abundance
 plot(num_cafi~volume_pg, data = cafi_coral,
     xlab = "Coral volume m^(3)", ylab = "CAFI abundance", main = "Coral volume and invert abundance")
@@ -110,21 +130,35 @@ abline(fit,col = "green")
 
 #cafi_coralscatter
 
-# Scatter plot of wide volume and invert abundance
+```
+
+```{r}
+# Scatter plot of average branch width and and invert abundance
 cafi_coralwide <- cafi_coral %>% filter(branch == "wide")
-plot(num_cafi~volume_pg, data = cafi_coralwide,
-    xlab = "Coral volume m^(3)", ylab = "CAFI abundance", main = "Wide coral volume and invert abundance")
+plot(num_cafi~avg_w_mm, data = cafi_coralwide,
+    xlab = "average branch width (m)", xlim = c(0,1 + max(cafi_coral$avg_w_mm, na.rm = TRUE)),
+    ylab = "CAFI abundance", ylim = c(0, 1 + max(cafi_coral$num_cafi)), 
+    main = "Wide coral volume and invert abundance")
 # Overlay best fit line on existing plot
-fit <- lm(num_cafi~volume_pg, data = cafi_coralwide)
+fit <- lm(num_cafi~avg_w_mm, data = cafi_coralwide)
 abline(fit,col = "green")
 
-# Scatter plot of tight volume and invert abundance
+# Scatter plot of average branch tight and invert abundance
 cafi_coraltight <- cafi_coral %>% filter(branch == "tight")
-plot(num_cafi~volume_pg, data = cafi_coraltight,
-    xlab = "Coral volume m^(3)", ylab = "CAFI abundance", main = "Tight coral volume and invert abundance")
+plot(num_cafi~avg_w_mm, data = cafi_coraltight,
+    xlab = "average branch width (m)", xlim = c(0, 1 + max(cafi_coral$avg_w_mm, na.rm = TRUE)),
+    ylab = "CAFI abundance", ylim = c(0, 1 + max(cafi_coral$num_cafi)), 
+    main = "Tight coral volume and invert abundance")
 # Overlay best fit line on existing plot
-fit <- lm(num_cafi~volume_pg, data = cafi_coraltight)
+fit <- lm(num_cafi~avg_w_mm, data = cafi_coraltight)
 abline(fit,col = "green")
+```
+
+```{r}
+# Bargraph of invert abundance
+ggplot(cafi_coral, aes(y=num_cafi, x=branch)) +
+  geom_bar(position = "dodge", stat = "identity")
+
 ```
 
 
