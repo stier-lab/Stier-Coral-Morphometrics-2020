@@ -87,6 +87,28 @@ coral_dim <- merge(coral_pg, branch_w_summarized, by = "coral_id") %>%
 cafi_coral <- merge(cafi_summarized, coral_dim, by ="coral_id")
 ```
 
+### Correlating morphological measurements
+```{r}
+# Relating coral volume to average branch distance
+volume_branch <- ggplot(cafi_coral, aes(x=volume_pg, y=avg_w_mm))+
+  geom_point()+
+  geom_smooth(method = lm, color="red", se=FALSE)+
+  theme_classic()+
+  facet_wrap(~branch)+
+  labs(y="Average branch distance", x="volume m^3", title = "Relating coral volume to average branch distance")
+
+volume_branch
+
+# Relating coral volume to surface area
+volume_SA <- ggplot(cafi_coral, aes(x=volume_pg, y=surface_area))+
+  geom_point()+
+  geom_smooth(method = lm, color="red", se=FALSE)+
+  theme_classic()+
+  facet_wrap(~branch)+
+  labs(y="SA m^3", x="volume m^3", title = "Relating coral volume to surface area")
+
+volume_SA
+```
 
 ### Visualize invertebrate data
 
