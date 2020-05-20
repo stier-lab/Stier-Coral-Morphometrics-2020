@@ -16,7 +16,11 @@ library(tidyverse)
 library(vegan)
 library(reshape)
 library(ggplot2)
-#library(hrbrthemes)
+library(ggpubr)
+library(zoo)
+library(sjPlot)
+library(sjmisc)
+library(sjlabelled)
 ```
 
 ```{r load data}
@@ -51,7 +55,7 @@ cafi_summarized <- group_by(cafi_combined, coral_id) %>%
 cafi_summarized$sw <- cafi_combined %>% 
   count(code, coral_id = coral_id) %>% 
   spread(code,n) %>% 
-  mutate_all(list(~replace_na(.,0))) %>% 
+  mutate_all(list(~tidyr::replace_na(.,0))) %>% 
   select(-coral_id) %>% 
   diversity(index = "shannon")
 ```
@@ -76,7 +80,7 @@ branch_w_summarized <- group_by(branch_width, coral_id) %>%
 # Add branch, cafi, and size_class columns from field data to morphometric photogrammetry data 
 coral_dim <- merge(coral_pg, branch_w_summarized, by = "coral_id") %>%
   merge(coral_field2, by = "coral_id") %>%
-  select(coral_id, row, column, branch, cafi, size_class, volume_pg, surface_area, interstitial_volume, avg_w_mm) 
+  select(coral_id, row, column, branch, cafi, size_class, volume_pg, surface_area, interstitial_volume, avg_w_mm)
 # could also use lapply(cafi_coral)
 ```
 
@@ -84,102 +88,152 @@ coral_dim <- merge(coral_pg, branch_w_summarized, by = "coral_id") %>%
 ### Combine cleaned CAFI data with photogrammetry coral data
 ```{r}
 # Combine cafi_summarized with coral_dim
-cafi_coral <- merge(cafi_summarized, coral_dim, by ="coral_id")
+cafi_coral <- merge(cafi_summarized, coral_dim, by ="coral_id") %>%
+  drop_na(volume_pg, surface_area)
 ```
+
 
 ### Correlating morphological measurements
 ```{r}
 # Relating coral volume to average branch distance
-#vol_branch <- ggplot(cafi_coral, aes(x=volume_pg, y=avg_w_mm))+
-  #geom_point()+
-  #geom_smooth(method = lm, color="red", se=FALSE)+
-  #theme_classic()+
-  #facet_wrap(~branch)+
-  #labs(y="Average branch distance (mm)", x="Volume (m^3)", title = "Relating coral volume to average branch distance")
-
-#vol_branch
-
-vol_branch <- ggplot(cafi_coral, aes(x=volume_pg, y= avg_w_mm, shape= branch, color= as.factor(branch)))+ #changed 'group' to 'shape'
+vol_branch <- ggplot(cafi_coral, aes(x=volume_pg, y= avg_w_mm, shape= branch, color= branch, linetype= branch))+ #changed 'group' to 'shape'
   geom_point()+
-  geom_smooth(method = lm, se=FALSE)+
+  geom_smooth(method = lm, se=TRUE, aes(fill=branch))+
   theme_classic()+
   theme(legend.position = "none")+
   labs(y= "Average branch distance mm", x= expression(paste("Volume m"^{3})))
 
-# fit linear model to coral volume and average branch distance
-fit_vol_branch_tight <- lm(avg_w_mm~volume_pg, data=cafi_coral, subset=(branch=="tight"))
-fit_vol_branch_wide <- lm(avg_w_mm~volume_pg, data=cafi_coral, subset=(branch=="wide"))
-
-#summary(fit_vol_branch_tight) #p-value: 0.1476 no sig. slope for volume and branch distance in tight branched coral
-#summary(fit_vol_branch_wide) #p-value: 0.003289 sig. slope for volume and branch distance in wide branched coral
-
-# Relating coral volume to surface area
-#vol_SA <- ggplot(cafi_coral, aes(x=volume_pg, y=surface_area))+
-  #geom_point()+
-  #geom_smooth(method = lm, color="red", se=FALSE)+
-  #theme_classic()+
-  #facet_wrap(~branch)+
-  #labs(y="SA m^2", x="Volume m^3", title = "Relating coral volume to surface area")
-
-#vol_SA
-
-vol_SA <- ggplot(cafi_coral, aes(x=volume_pg, y= surface_area, shape= branch, color= as.factor(branch)))+ #changed 'group' to 'shape'
+vol_SA <- ggplot(cafi_coral, aes(x=volume_pg, y= surface_area, shape= branch, color= branch, linetype= branch))+ #changed 'group' to 'shape'
   geom_point()+
-  geom_smooth(method = lm, se=FALSE, show.legend = FALSE)+
+  geom_smooth(method = lm, se=TRUE, show.legend = FALSE, aes(fill=branch))+
   theme_classic()+
   theme(legend.position = "right")+
   labs(y= expression(paste("Surface Area m"^{2})), x= expression(paste("Volume m"^{3})))
 
-compare_branch_SA <- vol_branch + vol_SA
-compare_branch_SA
+#fig1 <- vol_branch + vol_SA
+#fig1
 
-# fit linear model to coral volume and surface area
-fit_vol_SA_tight <- lm(surface_area~volume_pg, data=cafi_coral, subset=(branch=="tight"))
-fit_vol_SA_wide <- lm(surface_area~volume_pg, data=cafi_coral, subset=(branch=="wide"))
-
-summary(fit_vol_SA_tight) #p-value: 1.727e-08 sig. slope for volume and surface area in tight branched corals
-summary(fit_vol_SA_wide) #p-value: 3.549e-08 sig. slope for volume and surface area in tight branched corals
-
-#plot(fit_vol_SA_tight)
-#plot(fit_vol_SA_wide)
-
-fit_combined <- lm(surface_area~branch/volume_pg - 1, data = cafi_coral)
-
-summary(fit_combined)
-#plot(fit_combined)
-
-# eliminate 'removed 2 row' errors
-# update figures automatically
-# individual linear regressions
-# check for normallity?
-# formatted table w summary statistics
+fig1 <- ggarrange(vol_branch, vol_SA,
+                     ncol = 2, nrow = 1) # combines all graphs
+fig1
 ```
 
-### Visualize invertebrate data
+```{r}
+# fit linear model to tight coral volume and surface area
+fit_vol_SA_tight <- lm(avg_w_mm~volume_pg, data=cafi_coral, subset=(branch=="tight"))
 
+par(mfrow=c(2,2))
+plot(fit_vol_SA_tight)
+par(mfrow=c(1,1))
+
+# fit linear model to wide coral volume and surface area
+fit_vol_SA_wide <- lm(surface_area~volume_pg, data=cafi_coral, subset=(branch=="wide"))
+
+par(mfrow=c(2,2))
+plot(fit_vol_SA_wide)
+par(mfrow=c(1,1))
+
+# HTML table from regression results
+pl <- c(
+  '(Intercept)' = "Intercept",
+  volume_pg = "Volume"
+)
+tab_model(fit_vol_SA_tight, fit_vol_SA_wide,
+          pred.labels = pl,
+          dv.labels = c("SA Tight", "SA Wide"))
+```
+
+```{r}
+# fit linear model to tight coral volume and branch width
+fit_vol_branch_tight <- lm(avg_w_mm~volume_pg, data=cafi_coral, subset=(branch=="tight"))
+
+par(mfrow=c(2,2))
+plot(fit_vol_branch_tight)
+par(mfrow=c(1,1))
+
+# fit linear model to wide coral volume and branch width
+fit_vol_branch_wide <- lm(avg_w_mm~volume_pg, data=cafi_coral, subset=(branch=="wide"))
+
+par(mfrow=c(2,2))
+plot(fit_vol_branch_wide)
+par(mfrow=c(1,1))
+
+# HTML table from regression results
+pl <- c(
+  '(Intercept)' = "Intercept",
+  volume_pg = "Volume"
+)
+tab_model(fit_vol_branch_tight, fit_vol_branch_wide,
+          pred.labels = pl,
+          dv.labels = c("Tight branching avg. distance", "Wide branching avg. distance"))
+```
+
+
+### Visualize invertebrate data
 ```{r} 
 # Create two graphs showing invert abundance and coral volume for both tight and wide corals
-invert_volume <- ggplot(cafi_coral, aes(x=volume_pg, y=num_cafi))+
+invert_vol <- ggplot(cafi_coral, aes(x=volume_pg, y=num_cafi, shape= branch, color= branch, linetype= branch))+
   geom_point()+
-  geom_smooth(method = lm, color="red", se=FALSE)+
+  geom_smooth(method = lm, se=TRUE, aes(fill=branch))+
   theme_classic()+
-  facet_wrap(~branch)+
-  labs(y="Invertebrate abundance", x="Coral volume m^3", title = "Invertebrate abundance and coral volume")
+  #facet_wrap(~branch)+
+  labs(y="Invert. abundance", x= expression(paste("Volume m"^{3})), title = "Invert. abundance and coral volume")
 
-invert_volume
+invert_vol
+```
+
+```{r} 
+#fit linear model for tight branching coral volume and invertebrate abundance
+fit_invert_vol_tight <- lm(num_cafi~volume_pg, data=cafi_coral, subset=(branch=="tight"))
+summary(fit_invert_vol_tight)
+
+par(mfrow=c(2,2))
+plot(fit_invert_vol_tight)
+par(mfrow=c(1,1))
+```
+
+```{r}
+#fit linear model for wide branching coral volume and invertebrate abundance
+fit_invert_vol_wide <- lm(num_cafi~volume_pg, data=cafi_coral, subset=(branch=="wide"))
+summary(fit_invert_vol_wide)
+
+par(mfrow=c(2,2))
+plot(fit_invert_vol_wide)
+par(mfrow=c(1,1))
 ```
 
 ```{r}
 # Scatter plot of average branch width and invertebrate abundance for both wide and tight corals
-invert_branch <- ggplot(cafi_coral, aes(x=avg_w_mm, y=num_cafi))+
+invert_branch <- ggplot(cafi_coral, aes(x=avg_w_mm, y=num_cafi, shape=branch, color=branch, linetype=branch))+ #color=as.factor(branch)))+
   geom_point()+
-  geom_smooth(method = lm, color = "red", se=FALSE)+
+  geom_smooth(method = lm, se=TRUE, aes(fill=branch))+ 
   theme_classic()+
-  facet_wrap(~branch)+
-  labs(y="Invertebrate abundance", x="Avg. branch distance mm", title = "Invertebrate abundance and avgerage branch distance of coral")
+  #facet_wrap(~branch)+
+  labs(y="Invert. abundance", x= "Avg. branch distance mm", title = "Invert. abundance and branch distance")
 
 invert_branch
 ```
+
+```{r} 
+#fit linear model for tight branching coral avg. branch distance and invertebrate abundance
+fit_invert_branch_tight <- lm(num_cafi~avg_w_mm, data=cafi_coral, subset=(branch=="tight"))
+summary(fit_invert_branch_tight)
+
+par(mfrow=c(2,2))
+plot(fit_invert_branch_tight)
+par(mfrow=c(1,1))
+```
+
+```{r}
+#fit linear model for wide branching coral avg. branch distance and invertebrate abundance
+fit_invert_branch_wide <- lm(num_cafi~avg_w_mm, data=cafi_coral, subset=(branch=="wide"))
+summary(fit_invert_branch_wide)
+
+par(mfrow=c(2,2))
+plot(fit_invert_branch_wide)
+par(mfrow=c(1,1))
+```
+
 
 ```{r}
 # Boxplot of invert abundance
@@ -189,7 +243,7 @@ invert_box <- ggplot(cafi_coral, aes(x= branch, y=num_cafi, color = branch))+
   scale_color_manual(values = c("firebrick1", "steelblue2"))+
   scale_y_continuous(limits= c(0, max(cafi_coral$num_cafi + 3)), breaks = c(0, 10, 20, 30, 40, 50))+
   theme_classic()+
-  labs(y="Invertebrate abundance", x="Coral branching", title = "Invertebrate abundance and coral branching")
+  labs(y="Invert. abundance", x="Coral branching", title = "Invert. abundance boxplot")
 
 invert_box
 
@@ -200,7 +254,7 @@ richness_box <- ggplot(cafi_coral, aes(x= branch, y=cafi_richness, color = branc
   scale_color_manual(values = c("firebrick1", "steelblue2"))+
   scale_y_continuous(limits= c(0, max(cafi_coral$cafi_richness + 5)), breaks = c(0, 5, 10, 15, 20))+
   theme_classic()+
-  labs(y="Invertebrate species richness", x="Coral branching", title = "Invertebrate species richness and coral branching")
+  labs(y="Invert. sp. richness", x="Coral branching", title = "Invert. sp. richness boxplot")
 
 richness_box
   
@@ -215,6 +269,13 @@ branch_richness <- group_by(cafi_coral, branch) %>%
   #theme(legend.position="none")
 ```
 
+```{r}
+# Visualize invertebrate plots
+fig2 <- ggarrange(invert_vol, invert_branch, invert_box, richness_box,
+                     ncol = 2, nrow = 2) # combines all four graphs
+fig2
+```
+
 
 ### Dataframe of Trapezid crab abundance and combine with photogrammetry coral data
 ```{r}
@@ -226,60 +287,106 @@ trap_summarized <- group_by(its_a_trap, coral_id) %>%
 
 ```{r}
 # Combine with photogrammetry data
-trap_w_coral_dim <- merge(trap_summarized, coral_dim, by = "coral_id")
-trap_w_coral_dim$num_trap <- trap_w_coral_dim$num_cafi %>% replace_na(0) %>% rename("num_trap")
-trap_w_coral_dim$trap_richness <- trap_w_coral_dim$cafi_richness %>% replace_na(0) %>% rename("trap_richness")
-trap_w_coral_dim <- trap_w_coral_dim %>% select(-cafi_richness, -num_cafi)
+trap_coral_dim <- merge(trap_summarized, coral_dim, by = "coral_id")
+trap_coral_dim$num_trap <- trap_coral_dim$num_cafi %>% tidyr::replace_na(0) %>% rename("num_trap")
+trap_coral_dim$trap_richness <- trap_coral_dim$cafi_richness %>% tidyr::replace_na(0) %>% rename("trap_richness")
+trap_coral_dim <- trap_coral_dim %>% select(-cafi_richness, -num_cafi) %>% drop_na(volume_pg, surface_area)
 ```
 
 
 ### Visualize Trapezid data
 ```{r}
 # Scatter plot of volume and Trapezid abundance for both wide and tight corals
-trap_volume <- ggplot(trap_w_coral_dim, aes(x=volume_pg, y=num_trap))+
+trap_vol <- ggplot(trap_coral_dim, aes(x=volume_pg, y=num_trap, shape=branch, color=branch, linetype=branch))+
   geom_point()+
-  geom_smooth(method = lm, color = "red", se=FALSE)+
+  geom_smooth(method = lm, se=TRUE, aes(fill=branch))+
   theme_classic()+
-  facet_wrap(~branch)+
-  labs(y="Trapezid crab abundance", x="Coral volume m^3", title = "Trapezid crab abundance and coral volume")
+  #facet_wrap(~branch)+
+  labs(y="Trapezid abundance", x= expression(paste("Volume m"^{3})), title = "Trap. abundance and coral volume")
 
-trap_volume
+trap_vol
+```
+
+```{r} 
+#fit linear model for tight branching coral volume and trapezid abundance
+fit_trap_vol_tight <- lm(num_trap~volume_pg, data=trap_coral_dim, subset=(branch=="tight"))
+summary(fit_trap_vol_tight)
+
+par(mfrow=c(2,2))
+plot(fit_trap_vol_tight)
+par(mfrow=c(1,1))
+```
+
+```{r} 
+#fit linear model for wide branching coral volume and trapezid abundance
+fit_trap_vol_wide <- lm(num_trap~volume_pg, data=trap_coral_dim, subset=(branch=="wide"))
+summary(fit_trap_vol_wide)
+
+par(mfrow=c(2,2))
+plot(fit_trap_vol_wide)
+par(mfrow=c(1,1))
 ```
 
 ```{r}
-# Scatter plot of average branch width and Trapezid abundance for both wide and tight corals
-trap_branch <- ggplot(trap_w_coral_dim, aes(x=avg_w_mm, y=num_trap))+
+# Scatter plot of average branch width and Trapezid abundance for wide and tight corals
+trap_branch <- ggplot(trap_coral_dim, aes(x=avg_w_mm, y=num_trap, shape=branch, color=branch, linetype=branch))+
   geom_point()+
-  geom_smooth(method = lm, color = "red", se=FALSE)+
+  geom_smooth(method = lm, se=TRUE, aes(fill=branch))+
   theme_classic()+
-  facet_wrap(~branch)+
-  labs(y="Trapezid crab abundance", x="Avg. branch distance mm", title = "Trapezid crab abundance and average branch distance of coral")
+  #facet_wrap(~branch)+
+  labs(y="Trapezid abundance", x="Avg. branch distance mm", title = "Trap. abundance and branch distance")
 
 trap_branch
 ```
 
+```{r} 
+#fit linear model for tight branching coral avg. branch distance and trapezid abundance
+fit_trap_branch_tight <- lm(num_trap~avg_w_mm, data=trap_coral_dim, subset=(branch=="tight"))
+summary(fit_trap_branch_tight)
+
+par(mfrow=c(2,2))
+plot(fit_trap_branch_tight)
+par(mfrow=c(1,1))
+```
+```{r} 
+#fit linear model for wide branching coral avg. branch distance and trapezid abundance
+fit_trap_branch_wide <- lm(num_trap~avg_w_mm, data=trap_coral_dim, subset=(branch=="wide"))
+summary(fit_trap_branch_wide)
+
+par(mfrow=c(2,2))
+plot(fit_trap_branch_wide)
+par(mfrow=c(1,1))
+```
+
 ```{r}
 # Boxplot of Trapezid crab abundance
-trap_box <- ggplot(trap_w_coral_dim, aes(x= branch, y=num_trap, color = branch))+
+trap_box <- ggplot(trap_coral_dim, aes(x= branch, y=num_trap, color = branch))+
   geom_boxplot(width = 0.5)+
   geom_jitter(height = 0)+ # adds data on top of box plot
   scale_color_manual(values = c("firebrick1", "steelblue2"))+
-  scale_y_continuous(limits= c(0, max(trap_w_coral_dim$num_trap + 5)), breaks = c(0, 5, 10, 15, 20))+
+  scale_y_continuous(limits= c(0, max(trap_coral_dim$num_trap + 5)), breaks = c(0, 5, 10, 15, 20))+
   theme_classic()+
-  labs(y="Trapezid abundance", x="Coral branching", title = "Trapezid crab abundance for tight and wide branching coral")
+  labs(y="Trapezid abundance", x="Coral branching", title = "Trap. abundance boxplot")
 
 trap_box
 
 # Boxplot of Trapezid species richness per coral for both tight and wide branching
-trap_richness_box <- ggplot(trap_w_coral_dim, aes(x= branch, y=trap_richness, color = branch))+
+trap_richness_box <- ggplot(trap_coral_dim, aes(x= branch, y=trap_richness, color = branch))+
   geom_boxplot(width = 0.5)+
   geom_jitter(height = 0)+ # adds data on top of box plot
   scale_color_manual(values = c("firebrick1", "steelblue2"))+
-  scale_y_continuous(limits= c(0, max(trap_w_coral_dim$trap_richness + 1)), breaks = c(0, 1, 2, 3, 4, 5))+
+  scale_y_continuous(limits= c(0, max(trap_coral_dim$trap_richness + 1)), breaks = c(0, 1, 2, 3, 4, 5))+
   theme_classic()+
-  labs(y="Trapezid species richness", x="Coral branching", title = "Trapezid crab species richness for tight and wide branching coral")
+  labs(y="Trapezid species richness", x="Coral branching", title = "Trap. sp. richness boxplot")
 
 trap_richness_box
+```
+
+```{r}
+# Visualize trapezid plots
+fig3 <- ggarrange(trap_vol, trap_branch, trap_box, trap_richness_box,
+                     ncol = 2, nrow = 2) # combines all four graphs
+fig3
 ```
 
 ### Dataframe of Alpheus shrimp abundance and combine with photogrammetry coral data
@@ -290,29 +397,35 @@ alph_summarized <- group_by(alph, coral_id) %>%
 ```
 
 ```{r}
-alph_w_coral_dim <- merge(alph_summarized, coral_dim, by = "coral_id")
-alph_w_coral_dim$num_alph <- alph_w_coral_dim$num_cafi %>% replace_na(0) %>% rename("num_alph")
-alph_w_coral_dim$alph_richness <- alph_w_coral_dim$cafi_richness %>% replace_na(0) %>% rename("alph_richness")
-alph_w_coral_dim <- alph_w_coral_dim %>% select(-cafi_richness, -num_cafi)
+alph_coral_dim <- merge(alph_summarized, coral_dim, by = "coral_id")
+alph_coral_dim$num_alph <- alph_coral_dim$num_cafi %>% 
+  tidyr::replace_na(0) %>% 
+  rename("num_alph")
+alph_coral_dim$alph_richness <- alph_coral_dim$cafi_richness %>% 
+  tidyr::replace_na(0) %>% 
+  rename("alph_richness")
+alph_coral_dim <- alph_coral_dim %>% 
+  select(-cafi_richness, -num_cafi) %>% 
+  drop_na(volume_pg, surface_area)
 ```
 
 
 ### Visualize Alpheus shrimp data
 ```{r}
 # Scatter plot of volume and Alpheus shrimp abundance for both wide and tight corals
-alph_volume <- ggplot(alph_w_coral_dim, aes(x=volume_pg, y=num_alph))+
+alph_volume <- ggplot(alph_coral_dim, aes(x=volume_pg, y=num_alph))+
   geom_point()+
-  geom_smooth(method = lm, color = "red", se=FALSE)+
+  geom_smooth(method = lm, se=FALSE, color = "red")+
   theme_classic()+
   facet_wrap(~branch)+
-  labs(y="Alpheus abundance", x="Coral volume m^3", title = "Alpheus shrimp abundance and coral volume")
+  labs(y="Alpheus abundance", x= expression(paste("Volume m"^{3})), title = "Alpheus shrimp abundance and coral volume")
 
 alph_volume
 ```
 
 ```{r}
 # Scatter plot of average branch width and Trapezid abundance for both wide and tight corals
-alph_branch <- ggplot(alph_w_coral_dim, aes(x=avg_w_mm, y=num_alph))+
+alph_branch <- ggplot(alph_coral_dim, aes(x=avg_w_mm, y=num_alph))+
   geom_point()+
   geom_smooth(method = lm, color = "red", se=FALSE)+
   theme_classic()+
@@ -324,22 +437,22 @@ alph_branch
 
 ```{r}
 # Boxplot of Alpheus shrimp abundance
-alph_box <- ggplot(alph_w_coral_dim, aes(x= branch, y=num_alph, color = branch))+
+alph_box <- ggplot(alph_coral_dim, aes(x= branch, y=num_alph, color = branch))+
   geom_boxplot(width = 0.5)+
   geom_jitter(height = 0.25)+ # adds data on top of box plot
   scale_color_manual(values = c("firebrick1", "steelblue2"))+
-  scale_y_continuous(limits= c(0, max(alph_w_coral_dim$num_alph + 1)), breaks = c(0, 1, 2, 3, 4))+
+  scale_y_continuous(limits= c(0, max(alph_coral_dim$num_alph + 1)), breaks = c(0, 1, 2, 3, 4))+
   theme_classic()+
   labs(y="Alpheus abundance", x="Coral branching", title = "Alpheus shrimp abundance for tight and wide branching coral")
 
 alph_box
 
 # Boxplot of Alpheus shrimp species richness per coral for both tight and wide branching
-alph_richness_box <- ggplot(alph_w_coral_dim, aes(x= branch, y=alph_richness, color = branch))+
+alph_richness_box <- ggplot(alph_coral_dim, aes(x= branch, y=alph_richness, color = branch))+
   geom_boxplot(width = 0.5)+
   geom_jitter(height = 0.25)+ # adds data on top of box plot
   scale_color_manual(values = c("firebrick1", "steelblue2"))+
-  scale_y_continuous(limits= c(0, max(alph_w_coral_dim$alph_richness + 1)), breaks = c(0, 1, 2, 3))+
+  scale_y_continuous(limits= c(0, max(alph_coral_dim$alph_richness + 1)), breaks = c(0, 1, 2, 3))+
   theme_classic()+
   labs(y="Alpheus species richness", x="Coral branching", title = "Alpheus shrimp species richness for tight and wide branching coral")
 
