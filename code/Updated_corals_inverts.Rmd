@@ -3,7 +3,7 @@ output:
   html_document: default
   pdf_document: default
 ---
-## Title: "Linear regression of corals and inverts"
+## Title: "Updated Linear regression of corals and inverts"
 author: "Journ Galvan"
 date: "4/23/2020"
 output: html_document
@@ -90,6 +90,104 @@ cafi_coral2 <- merge(cafi_summarized2, coral_dim, by ="coral_id") %>%
   drop_na(volume_pg, surface_area)
 ```
 
+### Correlating morphological measurements
+
+##### For this step we related coral volume to surface area and avgerage branch width measurements. Summary data from the linear regression was extracted and exported to a table using the *tab_model( )* function and was then applied to all other linear models in the R markdown document. 
+
+##### We first assesed $p<0.05$ to test if the linear regression slope was significantly different from zero. Correlation of dependent and independent variables $R^2$ was also included in the tables. If the slopes were signficiant, we compared confidence intervals for overlap to give a conservative estimate if the slopes were signficantly different from eachother. Linear regressions for both tight and wide branching corals were overlayed on the same graph to show differences in their slope and standard error was included around the line for visual interpretation.
+
+```{r, message=FALSE}
+# Relating coral volume to average branch distance
+vol_branch <- ggplot(cafi_coral2, aes(x=volume_pg, y= avg_w_mm, shape= branch, color= branch, linetype= branch))+ #changed 'group' to 'shape'
+  geom_point()+
+  geom_smooth(method = lm, se=TRUE, aes(fill=branch))+
+  theme_classic()+
+  theme(legend.position = "none")+
+  labs(y= "Avg. branch distance mm", x= expression(paste("Volume m"^{3}), title= "Volume vs. avg. branch distance"))
+
+vol_SA <- ggplot(cafi_coral2, aes(x=volume_pg, y= surface_area, shape= branch, color= branch, linetype= branch))+ #changed 'group' to 'shape'
+  geom_point()+
+  geom_smooth(method = lm, se=TRUE, show.legend = FALSE, aes(fill=branch))+
+  theme_classic()+
+  theme(legend.position = "right")+
+  labs(y= expression(paste("Surface Area m"^{2})), x= expression(paste("Volume m"^{3}), title= "Volume vs. SA"))
+
+#fig1 <- vol_branch + vol_SA
+#fig1
+
+fig1 <- ggarrange(vol_branch, vol_SA,
+                     ncol = 2, nrow = 1) # combines all graphs
+fig1
+```
+
+```{r, include=FALSE}
+# fit linear model to tight coral volume and branch width
+fit_vol_branch_tight <- lm(avg_w_mm~volume_pg, data=cafi_coral2, subset=(branch=="tight"))
+```
+
+```{r, include=FALSE}
+par(mfrow=c(2,2))
+plot(fit_vol_branch_tight)
+par(mfrow=c(1,1))
+```
+
+```{r, include=FALSE}
+# fit linear model to wide coral volume and branch width
+fit_vol_branch_wide <- lm(avg_w_mm~volume_pg, data=cafi_coral2, subset=(branch=="wide"))
+```
+
+```{r, include=FALSE}
+par(mfrow=c(2,2))
+plot(fit_vol_branch_wide)
+par(mfrow=c(1,1))
+```
+
+```{r}
+# HTML table from regression results
+pl <- c(
+  '(Intercept)' = "Intercept",
+  volume_pg = "Volume"
+)
+tab_model(fit_vol_branch_tight, fit_vol_branch_wide,
+          pred.labels = pl,
+          dv.labels = c("Tight branching avg. distance", "Wide branching avg. distance"))
+```
+
+```{r, include=FALSE}
+# fit linear model to tight coral volume and surface area
+fit_vol_SA_tight <- lm(avg_w_mm~volume_pg, data=cafi_coral2, subset=(branch=="tight"))
+```
+
+```{r, include=FALSE}
+par(mfrow=c(2,2))
+plot(fit_vol_SA_tight)
+par(mfrow=c(1,1))
+```
+
+```{r, include=FALSE}
+# fit linear model to wide coral volume and surface area
+fit_vol_SA_wide <- lm(surface_area~volume_pg, data=cafi_coral2, subset=(branch=="wide"))
+```
+
+```{r, include=FALSE}
+par(mfrow=c(2,2))
+plot(fit_vol_SA_wide)
+par(mfrow=c(1,1))
+```
+
+```{r}
+# HTML table from regression results
+pl <- c(
+  '(Intercept)' = "Intercept",
+  volume_pg = "Volume"
+)
+tab_model(fit_vol_SA_tight, fit_vol_SA_wide,
+          pred.labels = pl,
+          dv.labels = c("SA Tight", "SA Wide"))
+```
+
+##### The slope is sig. for volume and avg. branch distance as well as the volume and SA of wide corals but not for tight branching. Wide branching also shows a stronger correlation for both morphological comparisons. The regression lines in both graphs appear to be significantly different for tight and wide branching.
+
 
 ### Visualize invertebrate data
 
@@ -138,9 +236,10 @@ tab_model(fit_invert_vol_tight, fit_invert_vol_wide,
           dv.labels = c("Invert abundance in tight coral", "Invert abundance in wide coral"))
 ```
 
+##### Looking at the table for invertebrate abundance in both wide and tight corals, we find that none of the slopes are significantly different from zero. Based on the overlap of the confidence intervals, we cannot conclude that the slopes are signficantly different from eachother. Volume is not significantly correlated for tight or wide coral. 
 
 ```{r, message=FALSE} 
-# Create two graphs showing invert abundance and coral SA for both tight and wide corals
+# Show invert abundance and coral SA for both tight and wide corals
 invert_SA <- ggplot(cafi_coral2, aes(x=surface_area, y=num_cafi, shape= branch, color= branch, linetype= branch))+
   geom_point()+
   geom_smooth(method = lm, se=TRUE, aes(fill=branch))+
@@ -152,7 +251,7 @@ invert_SA
 ```
 
 ```{r, include=FALSE} 
-#fit linear model for tight branching coral volume and invertebrate abundance
+#fit linear model for tight branching coral SA and invertebrate abundance
 fit_invert_SA_tight <- lm(num_cafi~surface_area, data=cafi_coral2, subset=(branch=="tight"))
 ```
 
@@ -163,7 +262,7 @@ par(mfrow=c(1,1))
 ```
 
 ```{r, include=FALSE}
-#fit linear model for wide branching coral volume and invertebrate abundance
+#fit linear model for wide branching coral SA and invertebrate abundance
 fit_invert_SA_wide <- lm(num_cafi~surface_area, data=cafi_coral2, subset=(branch=="wide"))
 ```
 
@@ -177,13 +276,14 @@ par(mfrow=c(1,1))
 #HTML table from regression results
 pl <- c(
   '(Intercept)' = "Intercept",
-  volume_pg = "SA"
+  surface_area = "SA"
 )
 tab_model(fit_invert_SA_tight, fit_invert_SA_wide,
           pred.labels = pl,
           dv.labels = c("Invert abundance in tight coral", "Invert abundance in wide coral"))
 ```
 
+##### Looking at the table relating invertebrate abundance to surface area, we can conclude that the slope for surface area and wide corals is significantly different from zero. There is a weak correlation for surface area and invertebrate abundance for wide and tight corals. 
 
 ```{r, message=FALSE}
 # Scatter plot of average branch width and invertebrate abundance for both wide and tight corals
@@ -229,6 +329,8 @@ tab_model(fit_invert_branch_tight, fit_invert_branch_wide,
           pred.labels = pl,
           dv.labels = c("Invert abundance in tight coral", "Invert abundance in wide coral"))
 ```
+
+##### Based on our linear regression and table for avg. branch width and invertebrate abundance, we cannot conclude that any of the slopes are significantly different from zero or different from each other. There is no correlation between avg. branch distance and invertebrate abundance. 
 
 
 ```{r, warning=FALSE}
@@ -331,6 +433,54 @@ tab_model(fit_trap_vol_tight, fit_trap_vol_wide,
           dv.labels = c("Trap. abundance in tight coral", "Trap abundance in wide coral"))
 ```
 
+##### Both linear regression lines are significantly different from zero for volume and Trapezid abundance. The lines are also signficantly different from eachother with moderate correlation between coral volume and abundance. 
+
+```{r, message=FALSE} 
+# Show invert abundance and coral SA for both tight and wide corals
+trap_SA <- ggplot(trap_coral_dim, aes(x=surface_area, y=num_trap, shape= branch, color= branch, linetype= branch))+
+  geom_point()+
+  geom_smooth(method = lm, se=TRUE, aes(fill=branch))+
+  theme_classic()+
+  #facet_wrap(~branch)+
+  labs(y="Trap. abundance", x= expression(paste("Surface area m"^{2})), title = "Trap. abundance and coral SA")
+
+trap_SA
+```
+```{r, include=FALSE} 
+#fit linear model for tight branching coral SA and invertebrate abundance
+fit_trap_SA_tight <- lm(num_trap~surface_area, data=trap_coral_dim, subset=(branch=="tight"))
+```
+
+```{r, include=FALSE}
+par(mfrow=c(2,2))
+plot(fit_trap_SA_tight)
+par(mfrow=c(1,1))
+```
+
+```{r, include=FALSE}
+#fit linear model for wide branching coral SA and invertebrate abundance
+fit_trap_SA_wide <- lm(num_trap~surface_area, data=trap_coral_dim, subset=(branch=="wide"))
+```
+
+```{r, include=FALSE}
+par(mfrow=c(2,2))
+plot(fit_trap_SA_wide)
+par(mfrow=c(1,1))
+```
+
+```{r}
+#HTML table from regression results
+pl <- c(
+  '(Intercept)' = "Intercept",
+  surface_area = "SA"
+)
+tab_model(fit_trap_SA_tight, fit_trap_SA_wide,
+          pred.labels = pl,
+          dv.labels = c("Invert abundance in tight coral", "Invert abundance in wide coral"))
+```
+
+##### Both linear regression slopes are significantly different from zero for both tight and wide corals. Confidence intervals overlap and further tests will have to be conducted to confirm if the slopes are signficantly different from eachother. There is a stronger correlation for SA and tight corals than for wide corals. 
+
 ```{r, message=FALSE}
 # Scatter plot of average branch width and Trapezid abundance for wide and tight corals
 trap_branch <- ggplot(trap_coral_dim, aes(x=avg_w_mm, y=num_trap, shape=branch, color=branch, linetype=branch))+
@@ -376,6 +526,7 @@ tab_model(fit_trap_branch_tight, fit_trap_branch_wide ,
           dv.labels = c("Trap. abundance in tight coral", "Trap abundance in wide coral"))
 ```
 
+##### There is no significant difference from zero for the linear regression line slopes and they are not signficantly different from eachother. There is extremely weak correlation for avg. branch distance and Trapezid abundance for both tight and wide corals. 
 
 ```{r}
 #Boxplot of Trapezid crab abundance
