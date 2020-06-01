@@ -42,33 +42,23 @@ updated_cafi <- read.csv(here("cafi_data/cafi_data_w_taxonomy_summer2019_2020_5_
 
 
 ```{r, include=FALSE}
-### Incorporate CAFI data
-
-# Uncount CAFI data from field experiment
-cafi_field_long <- uncount(cafi_field, count) %>% select(order, coral_id, type, code, cafi_size_mm, known_unknown) %>%
-  separate(coral_id, c("reef", NA), remove = FALSE)
-cafi_surveys <- cafi_surveys %>% select(sort, coral_id, type, code, cafi_size_mm, known_unknown) %>%
-  separate(coral_id, c("reef", NA), remove = FALSE)
+# Incorporate cleaned CAFI data
+updated_cafi2 <- updated_cafi %>% filter(str_detect(coral_id, "^FE")) %>%
+  select(master_sort, coral_id, code, type, search_term, lowest_level, phylum, genus, species, general_notes) %>%
+  subset(phylum!="Chordata")
 ```
 
 ```{r, include=FALSE}
-# Analyze known organisms until further data cleaning
-cafi_combined <- bind_rows(cafi_surveys, cafi_field_long) %>% 
-  filter(known_unknown == "known")
-```
-
-```{r, include=FALSE}
-# Calculate CAFI richness, abundance, and diversity (shannon weiner) for each coral
-cafi_summarized <- group_by(cafi_combined, coral_id) %>%
+# Calculate CAFI richness, abundance, and diversity (shannon weiner) for each coral 
+cafi_summarized2 <- group_by(updated_cafi2, coral_id) %>%
   summarise(num_cafi = n(), cafi_richness = length(unique(code)), cafi_present = paste(sort(unique(code)), collapse = ";"))
-cafi_summarized$sw <- cafi_combined %>% 
+cafi_summarized2$sw <- updated_cafi2 %>% 
   count(code, coral_id = coral_id) %>% 
   spread(code,n) %>% 
   mutate_all(list(~tidyr::replace_na(.,0))) %>% 
   select(-coral_id) %>% 
   diversity(index = "shannon")
 ```
-
 
 ```{r, include=FALSE}
 ### Incorporate coral data 
@@ -94,120 +84,18 @@ coral_dim <- merge(coral_pg, branch_w_summarized, by = "coral_id") %>%
 #could also use lapply(cafi_coral)
 ```
 
-
 ```{r, include=FALSE}
-### Combine cleaned CAFI data with photogrammetry coral data
-
-#Combine cafi data with coral dimensions
-cafi_coral <- merge(cafi_summarized, coral_dim, by ="coral_id") %>%
+#Combine cleaned cafi data with coral dimensions
+cafi_coral2 <- merge(cafi_summarized2, coral_dim, by ="coral_id") %>%
   drop_na(volume_pg, surface_area)
 ```
-
-
-### Correlating morphological measurements
-
-##### For this step we related coral volume to surface area and avgerage branch width measurements. Summary data from the linear regression was extracted and exported to a table using the *tab_model( )* function and was then applied to all other linear models in the R markdown document. 
-
-##### We first assesed $p<0.05$ to test if the linear regression slope was significantly different from zero. Correlation of dependent and independent variables $R^2$ was also included in the tables. If the slopes were signficiant, we compared confidence intervals for overlap to give a conservative estimate if the slopes were signficantly different from eachother. Linear regressions for both tight and wide branching corals were overlayed on the same graph to show differences in their slope and standard error was included around the line for visual interpretation.
-
-```{r, message=FALSE}
-# Relating coral volume to average branch distance
-vol_branch <- ggplot(cafi_coral, aes(x=volume_pg, y= avg_w_mm, shape= branch, color= branch, linetype= branch))+ #changed 'group' to 'shape'
-  geom_point()+
-  geom_smooth(method = lm, se=TRUE, aes(fill=branch))+
-  theme_classic()+
-  theme(legend.position = "none")+
-  labs(y= "Avg. branch distance mm", x= expression(paste("Volume m"^{3}), title= "Volume vs. avg. branch distance"))
-
-vol_SA <- ggplot(cafi_coral, aes(x=volume_pg, y= surface_area, shape= branch, color= branch, linetype= branch))+ #changed 'group' to 'shape'
-  geom_point()+
-  geom_smooth(method = lm, se=TRUE, show.legend = FALSE, aes(fill=branch))+
-  theme_classic()+
-  theme(legend.position = "right")+
-  labs(y= expression(paste("Surface Area m"^{2})), x= expression(paste("Volume m"^{3}), title= "Volume vs. SA"))
-
-#fig1 <- vol_branch + vol_SA
-#fig1
-
-fig1 <- ggarrange(vol_branch, vol_SA,
-                     ncol = 2, nrow = 1) # combines all graphs
-fig1
-```
-
-```{r, include=FALSE}
-# fit linear model to tight coral volume and branch width
-fit_vol_branch_tight <- lm(avg_w_mm~volume_pg, data=cafi_coral, subset=(branch=="tight"))
-```
-
-```{r, include=FALSE}
-par(mfrow=c(2,2))
-plot(fit_vol_branch_tight)
-par(mfrow=c(1,1))
-```
-
-```{r, include=FALSE}
-# fit linear model to wide coral volume and branch width
-fit_vol_branch_wide <- lm(avg_w_mm~volume_pg, data=cafi_coral, subset=(branch=="wide"))
-```
-
-```{r, include=FALSE}
-par(mfrow=c(2,2))
-plot(fit_vol_branch_wide)
-par(mfrow=c(1,1))
-```
-
-```{r}
-# HTML table from regression results
-pl <- c(
-  '(Intercept)' = "Intercept",
-  volume_pg = "Volume"
-)
-tab_model(fit_vol_branch_tight, fit_vol_branch_wide,
-          pred.labels = pl,
-          dv.labels = c("Tight branching avg. distance", "Wide branching avg. distance"))
-```
-
-```{r, include=FALSE}
-# fit linear model to tight coral volume and surface area
-fit_vol_SA_tight <- lm(avg_w_mm~volume_pg, data=cafi_coral, subset=(branch=="tight"))
-```
-
-```{r, include=FALSE}
-par(mfrow=c(2,2))
-plot(fit_vol_SA_tight)
-par(mfrow=c(1,1))
-```
-
-```{r, include=FALSE}
-# fit linear model to wide coral volume and surface area
-fit_vol_SA_wide <- lm(surface_area~volume_pg, data=cafi_coral, subset=(branch=="wide"))
-```
-
-```{r, include=FALSE}
-par(mfrow=c(2,2))
-plot(fit_vol_SA_wide)
-par(mfrow=c(1,1))
-```
-
-```{r}
-# HTML table from regression results
-pl <- c(
-  '(Intercept)' = "Intercept",
-  volume_pg = "Volume"
-)
-tab_model(fit_vol_SA_tight, fit_vol_SA_wide,
-          pred.labels = pl,
-          dv.labels = c("SA Tight", "SA Wide"))
-```
-
-##### The slope is sig. for volume and avg. branch distance as well as the volume and SA of wide corals but not for tight branching. Wide branching also shows a stronger correlation for both morphological comparisons. The regression lines in both graphs appear to be significantly different for tight and wide branching.
 
 
 ### Visualize invertebrate data
 
 ```{r, message=FALSE} 
 # Create two graphs showing invert abundance and coral volume for both tight and wide corals
-invert_vol <- ggplot(cafi_coral, aes(x=volume_pg, y=num_cafi, shape= branch, color= branch, linetype= branch))+
+invert_vol <- ggplot(cafi_coral2, aes(x=volume_pg, y=num_cafi, shape= branch, color= branch, linetype= branch))+
   geom_point()+
   geom_smooth(method = lm, se=TRUE, aes(fill=branch))+
   theme_classic()+
@@ -219,7 +107,7 @@ invert_vol
 
 ```{r, include=FALSE} 
 #fit linear model for tight branching coral volume and invertebrate abundance
-fit_invert_vol_tight <- lm(num_cafi~volume_pg, data=cafi_coral, subset=(branch=="tight"))
+fit_invert_vol_tight <- lm(num_cafi~volume_pg, data=cafi_coral2, subset=(branch=="tight"))
 ```
 
 ```{r, include=FALSE}
@@ -230,7 +118,7 @@ par(mfrow=c(1,1))
 
 ```{r, include=FALSE}
 #fit linear model for wide branching coral volume and invertebrate abundance
-fit_invert_vol_wide <- lm(num_cafi~volume_pg, data=cafi_coral, subset=(branch=="wide"))
+fit_invert_vol_wide <- lm(num_cafi~volume_pg, data=cafi_coral2, subset=(branch=="wide"))
 ```
 
 ```{r, include=FALSE}
@@ -250,12 +138,10 @@ tab_model(fit_invert_vol_tight, fit_invert_vol_wide,
           dv.labels = c("Invert abundance in tight coral", "Invert abundance in wide coral"))
 ```
 
-##### The slopes are both significantly different from zero. Coral volume and invert abundance appear to be more correlated for tight branching coral. Confidence intervals for slopes are highly overlapping and we can not confidently conclude that the differences in slopes are signficant.
-
 
 ```{r, message=FALSE} 
 # Create two graphs showing invert abundance and coral SA for both tight and wide corals
-invert_SA <- ggplot(cafi_coral, aes(x=surface_area, y=num_cafi, shape= branch, color= branch, linetype= branch))+
+invert_SA <- ggplot(cafi_coral2, aes(x=surface_area, y=num_cafi, shape= branch, color= branch, linetype= branch))+
   geom_point()+
   geom_smooth(method = lm, se=TRUE, aes(fill=branch))+
   theme_classic()+
@@ -264,9 +150,10 @@ invert_SA <- ggplot(cafi_coral, aes(x=surface_area, y=num_cafi, shape= branch, c
 
 invert_SA
 ```
+
 ```{r, include=FALSE} 
 #fit linear model for tight branching coral volume and invertebrate abundance
-fit_invert_SA_tight <- lm(num_cafi~surface_area, data=cafi_coral, subset=(branch=="tight"))
+fit_invert_SA_tight <- lm(num_cafi~surface_area, data=cafi_coral2, subset=(branch=="tight"))
 ```
 
 ```{r, include=FALSE}
@@ -277,7 +164,7 @@ par(mfrow=c(1,1))
 
 ```{r, include=FALSE}
 #fit linear model for wide branching coral volume and invertebrate abundance
-fit_invert_SA_wide <- lm(num_cafi~surface_area, data=cafi_coral, subset=(branch=="wide"))
+fit_invert_SA_wide <- lm(num_cafi~surface_area, data=cafi_coral2, subset=(branch=="wide"))
 ```
 
 ```{r, include=FALSE}
@@ -297,12 +184,10 @@ tab_model(fit_invert_SA_tight, fit_invert_SA_wide,
           dv.labels = c("Invert abundance in tight coral", "Invert abundance in wide coral"))
 ```
 
-##### The slopes are both significantly different from zero. Coral surface area and invert abundance appear to be more correlated for tight branching coral. Confidence intervals for slopes are highly overlapping and we can not confidently conclude that the differences in slopes are signficant.
-
 
 ```{r, message=FALSE}
 # Scatter plot of average branch width and invertebrate abundance for both wide and tight corals
-invert_branch <- ggplot(cafi_coral, aes(x=avg_w_mm, y=num_cafi, shape=branch, color=branch, linetype=branch))+ #color=as.factor(branch)))+
+invert_branch <- ggplot(cafi_coral2, aes(x=avg_w_mm, y=num_cafi, shape=branch, color=branch, linetype=branch))+ #color=as.factor(branch)))+
   geom_point()+
   geom_smooth(method = lm, se=TRUE, aes(fill=branch))+ 
   theme_classic()+
@@ -314,7 +199,7 @@ invert_branch
 
 ```{r, include=FALSE} 
 #fit linear model for tight branching coral avg. branch distance and invertebrate abundance
-fit_invert_branch_tight <- lm(num_cafi~avg_w_mm, data=cafi_coral, subset=(branch=="tight"))
+fit_invert_branch_tight <- lm(num_cafi~avg_w_mm, data=cafi_coral2, subset=(branch=="tight"))
 ```
 
 ```{r, include=FALSE}
@@ -325,7 +210,7 @@ par(mfrow=c(1,1))
 
 ```{r, include=FALSE}
 #fit linear model for wide branching coral avg. branch distance and invertebrate abundance
-fit_invert_branch_wide <- lm(num_cafi~avg_w_mm, data=cafi_coral, subset=(branch=="wide"))
+fit_invert_branch_wide <- lm(num_cafi~avg_w_mm, data=cafi_coral2, subset=(branch=="wide"))
 ```
 
 ```{r, include=FALSE}
@@ -345,61 +230,40 @@ tab_model(fit_invert_branch_tight, fit_invert_branch_wide,
           dv.labels = c("Invert abundance in tight coral", "Invert abundance in wide coral"))
 ```
 
-##### None of the slopes are significantly different from zero when comparing avg. branch distance and invert abundance. We also cannot confidently conclude that the slopes are significantly different from eachother. 
 
-```{r}
+```{r, warning=FALSE}
 # Boxplot of invert abundance
-invert_box <- ggplot(cafi_coral, aes(x= branch, y=num_cafi, color = branch))+
+invert_box <- ggplot(cafi_coral2, aes(x= branch, y=num_cafi, color = branch))+
   geom_boxplot(width = 0.5)+
   geom_jitter()+ # adds data on top of box plot
   scale_color_manual(values = c("firebrick1", "steelblue2"))+
-  scale_y_continuous(limits= c(0, max(cafi_coral$num_cafi + 3)), breaks = c(0, 10, 20, 30, 40, 50))+
+  scale_y_continuous(limits= c(0, max(cafi_coral2$num_cafi + 3)), breaks = c(0, 10, 20, 30, 40, 50))+
   theme_classic()+
   labs(y="Invert. abundance", x="Coral branching", title = "Invert. abundance boxplot")
 
 invert_box
 
 # Boxplot of invertebrate species richness per coral for both tight and wide branching
-richness_box <- ggplot(cafi_coral, aes(x= branch, y=cafi_richness, color = branch))+
+richness_box <- ggplot(cafi_coral2, aes(x= branch, y=cafi_richness, color = branch))+
   geom_boxplot(width = 0.5)+
   geom_jitter()+
   scale_color_manual(values = c("firebrick1", "steelblue2"))+
-  scale_y_continuous(limits= c(0, max(cafi_coral$cafi_richness + 5)), breaks = c(0, 5, 10, 15, 20))+
+  scale_y_continuous(limits= c(0, max(cafi_coral2$cafi_richness + 5)), breaks = c(0, 5, 10, 15, 20))+
   theme_classic()+
   labs(y="Invert. sp. richness", x="Coral branching", title = "Invert. sp. richness boxplot")
 
 richness_box
 
 # Boxplot of invertebrate diversity for both tight and wide branching coral
-diversity_box <- ggplot(cafi_coral, aes(x= branch, y=sw, color = branch))+
+diversity_box <- ggplot(cafi_coral2, aes(x= branch, y=sw, color = branch))+
   geom_boxplot(width = 0.5)+
   geom_jitter()+
   scale_color_manual(values = c("firebrick1", "steelblue2"))+
-  scale_y_continuous(limits= c(0, max(cafi_coral$sw + 0.5)), breaks = c(0, 0.5, 1, 1.5, 2, 2.5, 3))+
+  scale_y_continuous(limits= c(0, max(cafi_coral2$sw + 0.5)), breaks = c(0, 0.5, 1, 1.5, 2, 2.5, 3))+
   theme_classic()+
   labs(y="Invert. diversity", x="Coral branching", title = "Invert. diversity boxplot")
 
 diversity_box
-  
-# Invertebrate species richness barplot for all tight and all wide corals
-
-#branch_richness <- group_by(cafi_coral, branch) %>%
-  #summarise(cafi_richness = length(unique(cafi_present)), cafi_present = paste(sort(unique(cafi_present)), collapse = ";")) %>%
-  #select(branch, cafi_richness, cafi_present)
-  
-#ggplot(branch_richness, aes(x=branch, y=cafi_richness))+
-  #geom_bar()+
-  #scale_fill_grey(start = 0.25, end = 0.75)+
-  #theme(legend.position="none")
-```
-
-##### Qualitatively looking at boxplots would suggest invert abundance to be higher in wide branching corals and species richness to be higher in the tight branching corals. Diversity appears to be equal in tight and wide branching coral. 
-
-```{r, include=FALSE}
-# Visualize invertebrate plots
-fig2 <- ggarrange(invert_vol, invert_branch, invert_box, richness_box,
-                     ncol = 2, nrow = 2) # combines all four graphs
-fig2
 ```
 
 
@@ -407,7 +271,7 @@ fig2
 ### Dataframe of Trapezid crab abundance and combine with photogrammetry coral data
 
 # Calculate Trapezid abundance and richness for each coral
-its_a_trap <- cafi_combined %>% filter(str_detect(code, "^TR"))
+its_a_trap <- updated_cafi2 %>% filter(str_detect(code, "^TR"))
 trap_summarized <- group_by(its_a_trap, coral_id) %>%
   summarise(num_cafi = n(), cafi_richness = length(unique(code)), cafi_present = paste(sort(unique(code)), collapse = ";"))
 ```
@@ -467,8 +331,6 @@ tab_model(fit_trap_vol_tight, fit_trap_vol_wide,
           dv.labels = c("Trap. abundance in tight coral", "Trap abundance in wide coral"))
 ```
 
-##### Both slopes are significantly different from zero and volume and trapezid abundance both have about the same correlation for wide and tight branching coral. We can confidently conclude that the predicted slopes are different from eachother.
-
 ```{r, message=FALSE}
 # Scatter plot of average branch width and Trapezid abundance for wide and tight corals
 trap_branch <- ggplot(trap_coral_dim, aes(x=avg_w_mm, y=num_trap, shape=branch, color=branch, linetype=branch))+
@@ -514,10 +376,9 @@ tab_model(fit_trap_branch_tight, fit_trap_branch_wide ,
           dv.labels = c("Trap. abundance in tight coral", "Trap abundance in wide coral"))
 ```
 
-##### Looking at the above analysis of avg. branch distance and trapezid abundance, none of the slopes are significantly different from zero and we cannot conlude that the slopes are signficantly different from eachother. Correlation between variables appears to be positive and greater in tight branching corals.
 
 ```{r}
-# Boxplot of Trapezid crab abundance
+#Boxplot of Trapezid crab abundance
 trap_box <- ggplot(trap_coral_dim, aes(x= branch, y=num_trap, color = branch))+
   geom_boxplot(width = 0.5)+
   geom_jitter(height = 0)+ # adds data on top of box plot
@@ -528,7 +389,7 @@ trap_box <- ggplot(trap_coral_dim, aes(x= branch, y=num_trap, color = branch))+
 
 trap_box
 
-# Boxplot of Trapezid species richness per coral for both tight and wide branching
+#Boxplot of Trapezid species richness per coral for both tight and wide branching
 trap_richness_box <- ggplot(trap_coral_dim, aes(x= branch, y=trap_richness, color = branch))+
   geom_boxplot(width = 0.5)+
   geom_jitter(height = 0)+ # adds data on top of box plot
@@ -540,19 +401,10 @@ trap_richness_box <- ggplot(trap_coral_dim, aes(x= branch, y=trap_richness, colo
 trap_richness_box
 ```
 
-##### The above boxplot for trapezid abundance suggest trapezid abundance being higher in wide branching coral. There is not enough data to draw conclusions for species richness of trapezids.
-```{r, include=FALSE}
-# Visualize trapezid plots
-fig3 <- ggarrange(trap_vol, trap_branch, trap_box, trap_richness_box,
-                     ncol = 2, nrow = 2) # combines all four graphs
-fig3
-```
-
-
 ```{r, include=FALSE}
 ### Dataframe of Alpheus shrimp abundance and combine with photogrammetry coral data
 
-alph <- cafi_combined %>% filter(str_detect(code, "^AL"))
+alph <- updated_cafi2 %>% filter(str_detect(code, "^AL"))
 alph_summarized <- group_by(alph, coral_id) %>%
   summarise(num_cafi = n(), cafi_richness = length(unique(code)), cafi_present = paste(sort(unique(code)), collapse = ";"))
 ```
@@ -569,7 +421,6 @@ alph_coral_dim <- alph_coral_dim %>%
   select(-cafi_richness, -num_cafi) %>% 
   drop_na(volume_pg, surface_area)
 ```
-
 
 ### Visualize Alpheus shrimp data
 
