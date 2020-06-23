@@ -28,6 +28,8 @@ library(zoo)
 library(sjPlot)
 library(sjmisc)
 library(sjlabelled)
+library(psych)
+library(knitr)
 ```
 
 ```{r load data, include=FALSE}
@@ -66,29 +68,35 @@ cafi_summarized2$sw <- updated_cafi2 %>%
 # Clean field data
 coral_field2 <- coral_field %>%
   dplyr::rename(branch = branch_width)
+
 # Clean photogrammetry morphometric data
 coral_pg$volume_pg <- as.numeric(as.character(coral_pg$volume_pg)) # Convert factor to numeric
+
 # Clean photogrammetry branch width data and take averages of branch distance for each coral
 branch_width$branch_distance_mm <- as.numeric(as.character(branch_width$branch_distance_mm)) # Convert factor to numeric
-branch_w_summarized <- group_by(branch_width, coral_id) %>% 
-  summarise(avg_w_mm = sum(branch_distance_mm)/n(), 
+branch_w_summarized <- group_by(branch_width, coral_id) %>%
+  summarise(avg_w_cm = sum(branch_distance_mm/10)/n(), #take average branch distance and convert mm to cm
             measurements = length(unique(replicate_measurement)), 
             locations = paste(sort(unique(location)), collapse = ";"))
 ```
 
 ```{r, include=FALSE}
-#Add branch, cafi, and size_class columns from field data to morphometric photogrammetry data 
+#Compare photogrammetry and manual measurements
 coral_dim <- merge(coral_pg, branch_w_summarized, by = "coral_id") %>%
-  merge(coral_field2, by = "coral_id") %>%
-  select(coral_id, row, column, branch, cafi, size_class, volume_pg, surface_area, interstitial_volume, avg_w_mm)
-#could also use lapply(cafi_coral)
+ merge(coral_field2, by = "coral_id") %>%
+  mutate(volume_pg=volume_pg*10^6,
+         max_hull_volume=max_hull_volume*10^6, #convert m^3 to cm^3
+         surface_area=surface_area*10^4) #convert m^2 to cm^2
+
+coral_dim$interstitial_space <- coral_dim$max_hull_volume - coral_dim$volume_pg #calculate available space by subtracting software estimated volume from convex hull volume
+
+coral_dim <- coral_dim %>% select(coral_id, branch, cafi, size_class, volume_field, volume_pg, surface_area, avg_w_cm, interstitial_space, max_hull_volume) %>%
+  filter(cafi=="empty")
+
+cafi_coral2 <- merge(cafi_summarized2, coral_dim, by ="coral_id") %>%
+  drop_na(interstitial_space)
 ```
 
-```{r, include=FALSE}
-#Combine cleaned cafi data with coral dimensions
-cafi_coral2 <- merge(cafi_summarized2, coral_dim, by ="coral_id") %>%
-  drop_na(volume_pg, surface_area)
-```
 
 ### Correlating morphological measurements
 
@@ -98,7 +106,7 @@ cafi_coral2 <- merge(cafi_summarized2, coral_dim, by ="coral_id") %>%
 
 ```{r, message=FALSE}
 # Relating coral volume to average branch distance
-vol_branch <- ggplot(cafi_coral2, aes(x=volume_pg, y= avg_w_mm, shape= branch, color= branch, linetype= branch))+ #changed 'group' to 'shape'
+vol_branch <- ggplot(cafi_coral2, aes(x=volume_pg, y= avg_w_cm, shape= branch, color= branch, linetype= branch))+ #changed 'group' to 'shape'
   geom_point()+
   geom_smooth(method = lm, se=TRUE, aes(fill=branch))+
   theme_classic()+
@@ -116,16 +124,16 @@ vol_SA <- ggplot(cafi_coral2, aes(x=volume_pg, y= surface_area, shape= branch, c
 #fig1
 
 fig1 <- ggarrange(vol_branch, vol_SA,
-                     ncol = 2, nrow = 1) # combines all graphs
+                     ncol = 2, nrow = 1) #combines all graphs
 fig1
 ```
 
 ```{r, include=FALSE}
 # fit linear model to tight coral volume and branch width
-fit_vol_branch_tight <- lm(avg_w_mm~volume_pg, data=cafi_coral2, subset=(branch=="tight"))
+fit_vol_branch_tight <- lm(avg_w_cm~volume_pg, data=cafi_coral2, subset=(branch=="tight"))
 ```
 
-```{r, include=FALSE}
+```{r, include=TRUE}
 par(mfrow=c(2,2))
 plot(fit_vol_branch_tight)
 par(mfrow=c(1,1))
@@ -133,10 +141,10 @@ par(mfrow=c(1,1))
 
 ```{r, include=FALSE}
 # fit linear model to wide coral volume and branch width
-fit_vol_branch_wide <- lm(avg_w_mm~volume_pg, data=cafi_coral2, subset=(branch=="wide"))
+fit_vol_branch_wide <- lm(avg_w_cm~volume_pg, data=cafi_coral2, subset=(branch=="wide"))
 ```
 
-```{r, include=FALSE}
+```{r, include=TRUE}
 par(mfrow=c(2,2))
 plot(fit_vol_branch_wide)
 par(mfrow=c(1,1))
@@ -155,7 +163,7 @@ tab_model(fit_vol_branch_tight, fit_vol_branch_wide,
 
 ```{r, include=FALSE}
 # fit linear model to tight coral volume and surface area
-fit_vol_SA_tight <- lm(avg_w_mm~volume_pg, data=cafi_coral2, subset=(branch=="tight"))
+fit_vol_SA_tight <- lm(avg_w_cm~volume_pg, data=cafi_coral2, subset=(branch=="tight"))
 ```
 
 ```{r, include=FALSE}
@@ -187,6 +195,12 @@ tab_model(fit_vol_SA_tight, fit_vol_SA_wide,
 ```
 
 ##### The slope is sig. for volume and avg. branch distance as well as the volume and SA of wide corals but not for tight branching. Wide branching also shows a stronger correlation for both morphological comparisons. The regression lines in both graphs appear to be significantly different for tight and wide branching.
+
+### Compare manual vs. 3D model measurements
+
+```{r}
+
+```
 
 
 ### Visualize invertebrate data
@@ -287,7 +301,7 @@ tab_model(fit_invert_SA_tight, fit_invert_SA_wide,
 
 ```{r, message=FALSE}
 # Scatter plot of average branch width and invertebrate abundance for both wide and tight corals
-invert_branch <- ggplot(cafi_coral2, aes(x=avg_w_mm, y=num_cafi, shape=branch, color=branch, linetype=branch))+ #color=as.factor(branch)))+
+invert_branch <- ggplot(cafi_coral2, aes(x=avg_w_cm, y=num_cafi, shape=branch, color=branch, linetype=branch))+ #color=as.factor(branch)))+
   geom_point()+
   geom_smooth(method = lm, se=TRUE, aes(fill=branch))+ 
   theme_classic()+
@@ -299,7 +313,7 @@ invert_branch
 
 ```{r, include=FALSE} 
 #fit linear model for tight branching coral avg. branch distance and invertebrate abundance
-fit_invert_branch_tight <- lm(num_cafi~avg_w_mm, data=cafi_coral2, subset=(branch=="tight"))
+fit_invert_branch_tight <- lm(num_cafi~avg_w_cm, data=cafi_coral2, subset=(branch=="tight"))
 ```
 
 ```{r, include=FALSE}
@@ -310,7 +324,7 @@ par(mfrow=c(1,1))
 
 ```{r, include=FALSE}
 #fit linear model for wide branching coral avg. branch distance and invertebrate abundance
-fit_invert_branch_wide <- lm(num_cafi~avg_w_mm, data=cafi_coral2, subset=(branch=="wide"))
+fit_invert_branch_wide <- lm(num_cafi~avg_w_cm, data=cafi_coral2, subset=(branch=="wide"))
 ```
 
 ```{r, include=FALSE}
@@ -323,14 +337,81 @@ par(mfrow=c(1,1))
 #HTML table from regression results
 pl <- c(
   '(Intercept)' = "Intercept",
-  avg_w_mm = "Avg. branch width"
+  avg_w_cm = "Avg. branch width"
 )
 tab_model(fit_invert_branch_tight, fit_invert_branch_wide,
           pred.labels = pl,
           dv.labels = c("Invert abundance in tight coral", "Invert abundance in wide coral"))
 ```
 
-##### Based on our linear regression and table for avg. branch width and invertebrate abundance, we cannot conclude that any of the slopes are significantly different from zero or different from each other. There is no correlation between avg. branch distance and invertebrate abundance. 
+##### Based on our linear regression and table for avg. branch width and invertebrate abundance, we cannot conclude that any of the slopes are significantly different from zero or different from each other. There is no correlation between avg. branch distance and invertebrate abundance.
+
+##### For this step we use the *pairs.panels()* function to check for correlation between variables and check for normality. 
+```{r, error==FALSE}
+cafi_coral3 <- cafi_coral2 %>% select(num_cafi,volume_pg, avg_w_cm, surface_area) 
+pairs.panels(cafi_coral3, lm = TRUE, cor = T) #surface area is highly correlated with branch distance and coral volume
+cafi_coral3 <- cafi_coral3 %>% subset(select = -surface_area) #drop from dataset
+```
+
+```{r, include=TRUE}
+#data is skewed right, log transform
+logcafi_coral3 <- log(cafi_coral3)
+
+logfit_1var <- lm(num_cafi ~ volume_pg, 
+               data = logcafi_coral3)
+
+logfit_2var <- lm(num_cafi ~ volume_pg + avg_w_cm,
+               data = logcafi_coral3)
+
+#Look at diagnostic plots for each model
+par(mfrow=c(2,2))
+plot(logfit_1var) #data does NOT appear to be normal
+par(mfrow=c(1,1))
+
+#Look at diagnostic plots for each model
+par(mfrow=c(2,2))
+plot(logfit_2var) #data appears somewhat normal
+par(mfrow=c(1,1))
+```
+
+```{r}
+pairs.panels(logcafi_coral3, lm = TRUE, cor = T)
+```
+
+```{r, include=FALSE}
+#calculate AIC of each model
+result <- AIC(logfit_1var,logfit_2var) #create a dataframe whose rownames are the models, with columns for the df and AIC of each model
+
+#add other metrics to table
+models <- list(logfit_1var,logfit_2var) #keep models in the same order here as they were when you created your results table
+result$BIC <- sapply(models, BIC) #add a column for BIC to the results
+
+model_summary <- lapply(models, summary) 
+
+#use a for loop to easily extract the R^2 and adj R^2 value for each model from its summary, and store them in new columns in the results table
+
+for(i in 1:length(models)){ #this creates a variable i that starts with the value i=1
+  result$rsq[i] <- model_summary[[i]]$r.squared #we assign the rsq value from model i to the i'th row of the column 'rsq' in the table 'results'
+  result$adj_rsq[i] <- model_summary[[i]]$adj.r.squared #same for adjusted rsq
+} #now we go back to the beginning of the for-loop, add 1 to the value of i, and do everything again
+
+
+kable(result, digits = 2, align = "c")
+```
+
+```{r, include=FALSE}
+splitter <- sample(1:nrow(logcafi_coral3), 15, replace = F) #pick 15 random rows to reserve as test data
+coral_train <- logcafi_coral3[-splitter,] #leave those rows out of the training data
+coral_test <- logcafi_coral3[splitter,] #use them to create a set of test data
+
+logfit_2var_split <- lm(num_cafi ~ volume_pg + avg_w_cm,
+               data = logcafi_coral3) #fit the final model, using JUST your training set as the data argument
+
+prediction <- predict(logfit_2var_split,coral_test) #use the fitted model to predict values for your test data
+
+plot(coral_test$num_cafi, pch=1) #plot the actual test data values
+points(prediction, pch=20, col = "red") #plot the model predictions for those points
+```
 
 
 ```{r, warning=FALSE}
@@ -483,7 +564,7 @@ tab_model(fit_trap_SA_tight, fit_trap_SA_wide,
 
 ```{r, message=FALSE}
 # Scatter plot of average branch width and Trapezid abundance for wide and tight corals
-trap_branch <- ggplot(trap_coral_dim, aes(x=avg_w_mm, y=num_trap, shape=branch, color=branch, linetype=branch))+
+trap_branch <- ggplot(trap_coral_dim, aes(x=avg_w_cm, y=num_trap, shape=branch, color=branch, linetype=branch))+
   geom_point()+
   geom_smooth(method = lm, se=TRUE, aes(fill=branch))+
   theme_classic()+
@@ -495,7 +576,7 @@ trap_branch
 
 ```{r, include=FALSE} 
 #fit linear model for tight branching coral avg. branch distance and trapezid abundance
-fit_trap_branch_tight <- lm(num_trap~avg_w_mm, data=trap_coral_dim, subset=(branch=="tight"))
+fit_trap_branch_tight <- lm(num_trap~avg_w_cm, data=trap_coral_dim, subset=(branch=="tight"))
 ```
 
 ```{r, include=FALSE}
@@ -506,7 +587,7 @@ par(mfrow=c(1,1))
 
 ```{r, include=FALSE} 
 #fit linear model for wide branching coral avg. branch distance and trapezid abundance
-fit_trap_branch_wide <- lm(num_trap~avg_w_mm, data=trap_coral_dim, subset=(branch=="wide"))
+fit_trap_branch_wide <- lm(num_trap~avg_w_cm, data=trap_coral_dim, subset=(branch=="wide"))
 ```
 
 ```{r, include=FALSE}
@@ -519,7 +600,7 @@ par(mfrow=c(1,1))
 #HTML table from regression results
 pl <- c(
   '(Intercept)' = "Intercept",
-  avg_w_mm = "Avg. branch distance"
+  avg_w_cm = "Avg. branch distance"
 )
 tab_model(fit_trap_branch_tight, fit_trap_branch_wide ,
           pred.labels = pl,
@@ -591,7 +672,7 @@ alph_volume
 
 ```{r, message=FALSE}
 # Scatter plot of average branch width and Trapezid abundance for both wide and tight corals
-alph_branch <- ggplot(alph_coral_dim, aes(x=avg_w_mm, y=num_alph))+
+alph_branch <- ggplot(alph_coral_dim, aes(x=avg_w_cm, y=num_alph))+
   geom_point()+
   geom_smooth(method = lm, color = "red", se=FALSE)+
   theme_classic()+

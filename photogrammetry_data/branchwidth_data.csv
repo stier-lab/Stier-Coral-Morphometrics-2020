@@ -14,11 +14,11 @@ FE-POC01,52,2,top,
 FE-POC01,38.6,3,base,
 FE-POC01,61.8,4,mid ,
 FE-POC01,3.46,5,mid ,
-FE-POC09,NA,1,NA,poor quality
-FE-POC09,NA,2,NA,poor quality
-FE-POC09,NA,3,NA,poor quality
-FE-POC09,NA,4,NA,poor quality
-FE-POC09,NA,5,NA,poor quality
+FE-POC09,15.4,1,base,poor quality
+FE-POC09,10.9,2,top,poor quality
+FE-POC09,14,3,base,poor quality
+FE-POC09,13,4,mid,poor quality
+FE-POC09,10.9,5,mid,poor quality
 FE-POC30,36,1,base,
 FE-POC30,24.3,2,top,
 FE-POC30,17.7,3,base,

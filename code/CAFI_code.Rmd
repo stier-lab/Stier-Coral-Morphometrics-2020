@@ -1,0 +1,637 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+## Title: "Modeling Coral Invertebrate Communities Using 3D photogrammetry"
+author: "Journ Galvan"
+date: "4/23/2020"
+output: html_document
+---
+
+```{r, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message=FALSE}
+# Load libraries
+library(here)
+library(tidyverse)
+library(vegan)
+library(reshape)
+library(ggplot2)
+library(ggpubr)
+library(zoo)
+library(sjPlot)
+library(sjmisc)
+library(sjlabelled)
+library(psych)
+library(knitr)
+library(faraway)
+library(car)
+library(MASS)
+library(gridExtra)
+library(grid)
+```
+
+```{r}
+#Load data 
+branch_width <- read.csv(here("photogrammetry_data/branchwidth_data.csv"))
+coral_pg <- read.csv(here("photogrammetry_data/galvan_journ_datasheet_v2.csv"))
+coral_field <- read.csv(here("photogrammetry_data/field_experiment_colony_measurements_moorea_summer2019.csv"))
+cafi_surveys <- read.csv(here("cafi_data/revised_cafi_data_moorea_summer2019_11_27.csv"))
+cafi_field <- read.csv(here("cafi_data/prelim_cafi_counts_moorea_summer2019.csv"))
+updated_cafi <- read.csv(here("cafi_data/cafi_data_w_taxonomy_summer2019_2020_5_21.csv"))
+```
+
+
+```{r}
+#Incorporate cleaned CAFI data
+updated_cafi2 <- updated_cafi %>% filter(str_detect(coral_id, "^FE")) %>%
+  dplyr::select(master_sort, coral_id, code, type, search_term, lowest_level, phylum, genus, species, general_notes) %>%
+  subset(phylum!="Chordata")
+```
+
+```{r, warning=FALSE}
+#Calculate CAFI richness, abundance, and diversity (shannon weiner) for each coral 
+cafi_summarized2 <- group_by(updated_cafi2, coral_id) %>%
+  summarise(num_cafi = n(), cafi_richness = length(unique(code)), cafi_present = paste(sort(unique(code)), collapse = ";"))
+cafi_summarized2$sw <- updated_cafi2 %>% 
+  count(code, coral_id = coral_id) %>% 
+  spread(code,n) %>% 
+  mutate_all(list(~tidyr::replace_na(.,0))) %>% 
+  dplyr::select(-coral_id) %>% 
+  diversity(index = "shannon")
+```
+
+```{r}
+### Incorporate coral data 
+
+# Clean field data
+coral_field2 <- coral_field %>%
+  dplyr::rename(branch = branch_width)
+
+# Clean photogrammetry morphometric data
+coral_pg$volume_pg <- as.numeric(as.character(coral_pg$volume_pg)) # Convert factor to numeric
+
+# Clean photogrammetry branch width data and take averages of branch distance for each coral
+branch_width$branch_distance_mm <- as.numeric(as.character(branch_width$branch_distance_mm)) # Convert factor to numeric
+branch_w_summarized <- group_by(branch_width, coral_id) %>%
+  summarise(avg_w_cm = sum(branch_distance_mm/10)/n(), #take average branch distance and convert mm to cm
+            measurements = length(unique(replicate_measurement)), 
+            locations = paste(sort(unique(location)), collapse = ";"))
+```
+
+```{r}
+#Create dataframe called coral_dim 
+coral_dim <- merge(coral_pg, branch_w_summarized, by = "coral_id") %>%
+ merge(coral_field2, by = "coral_id") %>%
+  mutate(volume_pg=volume_pg*10^6,
+         max_hull_volume=max_hull_volume*10^6, #convert m^3 to cm^3
+         max_hull_surface_area=max_hull_surface_area*10^4,
+         surface_area=surface_area*10^4) %>%   #convert m^2 to cm^2
+  dplyr::rename(max_hull_SA = max_hull_surface_area,
+                SA = surface_area)
+          
+coral_dim$interstitial_space <- coral_dim$max_hull_volume - coral_dim$volume_pg #calculate available space by subtracting software estimated volume from convex hull volume
+
+coral_dim$SAV <- coral_dim$SA / coral_dim$volume_pg #calculate surface area to volume relationship
+
+coral_dim$convexity <- coral_dim$volume_pg / coral_dim$max_hull_volume #calculate proportion occupied, high ratios indicate less free space between branches
+
+coral_dim$packing <- coral_dim$SA / coral_dim$max_hull_SA #how much of an objects surface area is situated internally
+
+coral_dim$sphericity <- ((3.14^(1/3))*((6*coral_dim$volume_pg)^(2/3)))/coral_dim$SA #calculate sphericity or how close the object is to a sphere
+
+coral_dim <- coral_dim %>% 
+  dplyr::select(coral_id, branch, cafi, size_class, volume_field, volume_pg, SA, avg_w_cm, interstitial_space, SAV, convexity, packing, sphericity) %>%
+  filter(cafi=="empty")
+
+coral_dim$branch <- ifelse(coral_dim$convexity>=0.5, "tight","wide") #classifies wide and tight branching coral based on convexity measurement
+```
+
+```{r}
+#Create dataframe called cafi_coral and merge coral and cafi data
+cafi_coral <- merge(cafi_summarized2, coral_dim, by ="coral_id") %>%
+  drop_na(interstitial_space) %>%
+  dplyr::select(coral_id, branch, cafi, size_class, volume_field, volume_pg, SA, avg_w_cm, interstitial_space, SAV, convexity, packing, sphericity, num_cafi, cafi_present, cafi_richness, sw) 
+```
+
+```{r}
+#Log transform variables
+cafi_coral$log_num_cafi <- log(cafi_coral$num_cafi)
+cafi_coral$log_volume_field <- log(cafi_coral$volume_field)
+cafi_coral$log_volume_pg <- log(cafi_coral$volume_pg)
+cafi_coral$log_avg_w <- log(cafi_coral$avg_w_cm)
+cafi_coral$log_interstitial_space <- log(cafi_coral$interstitial_space)
+cafi_coral$log_SA <- log(cafi_coral$SA)
+cafi_coral$log_cafi_richness <- log(cafi_coral$cafi_richness)
+cafi_coral$log_sphericity <- log(cafi_coral$sphericity)
+
+#Sqrt transform variables
+cafi_coral$sqrt_num_cafi <- sqrt(cafi_coral$num_cafi)
+cafi_coral$sqrt_volume_pg <- sqrt(cafi_coral$volume_pg)
+cafi_coral$sqrt_interstitial_space <- sqrt(cafi_coral$interstitial_space)
+cafi_coral$sqrt_SA <- sqrt(cafi_coral$SA)
+cafi_coral$sqrt_cafi_richness <- sqrt(cafi_coral$cafi_richness)
+cafi_coral$sqrt_sphericity <- sqrt(cafi_coral$sphericity)
+```
+
+```{r}
+#Visualize correlations between variables
+cor_var <- cafi_coral %>% 
+  dplyr::select(num_cafi,volume_pg,volume_field,SA,avg_w_cm,interstitial_space,sphericity,convexity,packing) 
+pairs.panels(cor_var, 
+             method="pearson", 
+             hist.col = "white",
+             density=TRUE,
+             ellipses=FALSE)
+
+#Use log transformed data
+cor_var2 <- cafi_coral %>%
+  dplyr::select(log_num_cafi,log_volume_pg,log_volume_field,log_SA,log_avg_w,log_interstitial_space,log_sphericity,convexity,packing)
+pairs.panels(cor_var2, 
+             method="pearson", 
+             hist.col = "white",
+             density=TRUE,
+             ellipses=FALSE)
+```
+
+```{r}
+g1 <- ggplot(cafi_coral, aes(x=log_volume_pg, y=log_SA, shape=branch, color=branch, linetype=branch))+ 
+  geom_point()+
+  geom_smooth(method=lm, se=TRUE, aes(fill=branch))+
+  theme_classic()+
+  theme(axis.title.x=element_blank(),
+        legend.position="none")+
+  labs(y=expression(paste("Log SA cm"^{2})))
+
+g2 <- ggplot(cafi_coral, aes(x=log_volume_pg, y=log_avg_w, shape=branch, color=branch, linetype=branch))+ 
+  geom_point()+
+  geom_smooth(method=lm, se=TRUE, aes(fill=branch))+
+  theme_classic()+
+  theme(axis.title.x=element_blank(),
+        legend.position="none")+
+  labs(y="Log branch distance cm")
+
+g3 <- ggplot(cafi_coral, aes(x=log_volume_pg, y=log_interstitial_space, shape=branch, color=branch, linetype=branch))+ 
+  geom_point()+
+  geom_smooth(method=lm, se=TRUE, aes(fill=branch))+
+  theme_classic()+
+  theme(axis.title.x=element_blank(),
+        legend.position="none")+
+  labs(y=expression(paste("Log space cm"^{3})))
+
+g4 <- ggplot(cafi_coral, aes(x=log_volume_pg, y=log_sphericity, shape=branch, color=branch, linetype=branch))+ 
+  geom_point()+
+  geom_smooth(method=lm, se=TRUE, aes(fill=branch))+
+  theme_classic()+
+  theme(axis.title.x=element_blank(),
+        legend.position="none")+
+  labs(y="Log sphericity")
+
+g5 <- ggplot(cafi_coral, aes(x=log_volume_pg, y=convexity, shape=branch, color=branch, linetype=branch))+ 
+  geom_point()+
+  geom_smooth(method=lm, se=TRUE, aes(fill=branch))+
+  theme_classic()+
+  theme(axis.title.x=element_blank(),
+        legend.position="none")+
+  labs(y="Convexity", x=expression(paste("Log Vol. cm"^{3})))
+
+g6 <- ggplot(cafi_coral, aes(x=log_volume_pg, y=packing, shape=branch, color=branch, linetype=branch))+ 
+  geom_point()+
+  geom_smooth(method=lm, se=TRUE, aes(fill=branch))+
+  theme_classic()+
+  theme(axis.title.x=element_blank(),
+        legend.position="bottom")+
+  labs(y="Packing")
+
+#extract legend
+#https://github.com/hadley/ggplot2/wiki/Share-a-legend-between-two-ggplot2-graphs
+g_legend<-function(a.gplot){
+  tmp <- ggplot_gtable(ggplot_build(a.gplot))
+  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+  legend <- tmp$grobs[[leg]]
+  return(legend)}
+
+mylegend<-g_legend(g6)
+       
+fig1 <- ggarrange(g1,g2,g3,g4,g5,g6,
+                     ncol = 3, nrow=2)
+  
+annotate_figure(fig1,
+                top = text_grob("Morphological Measurements", color = "black", face = "bold", size = 14),
+                bottom = text_grob(expression(paste("Log Vol. cm"^{3})), color = "black",
+                                   face = "bold", size = 12),
+                fig.lab = "Figure 1", fig.lab.face = "bold")  
+```
+
+```{r}
+pg_field <- ggplot(cafi_coral, aes(x=volume_pg, y=volume_field))+ 
+  geom_point()+
+  geom_smooth(method=lm, se=TRUE)+
+  scale_y_continuous(breaks=seq(0,max(cafi_coral$volume_field), by = 5000))+
+  scale_x_continuous(breaks=seq(0,max(cafi_coral$volume_pg), by = 2000))+
+  theme_bw()+
+  labs(y= expression(paste("elipsoid V cm"^{3})), x= expression(paste("software V cm"^{3})))
+  
+pg_field
+```
+
+```{r}
+invert_field <- ggplot(cafi_coral, aes(x=volume_field, y=num_cafi))+ 
+  geom_point()+
+  geom_smooth(method=lm, se=TRUE)+
+  theme_bw()+
+  labs(y="invert abundance", x= expression(paste("elipsoid V cm"^{3})))
+  
+invert_field
+
+lm_invert_field <- lm(num_cafi~volume_field, data=cafi_coral)
+
+#HTML table from regression results
+pl <- c(
+  '(Intercept)' = "Intercept",
+  volume_field = "elipsoid volume")
+
+tab_model(lm_invert_field,
+          pred.labels = pl,
+          dv.labels = "Invertebrate abundance")
+```
+
+```{r}
+invert_pg <- ggplot(cafi_coral, aes(x=volume_pg, y=num_cafi))+ 
+  geom_point()+
+  geom_smooth(method=lm, se=TRUE)+
+  theme_bw()+
+  labs(y="invert abundance", x= expression(paste("software V cm"^{3})))
+  
+invert_pg
+
+lm_invert_pg <- lm(num_cafi~volume_pg, data=cafi_coral)
+
+#HTML table from regression results
+pl <- c(
+  '(Intercept)' = "Intercept",
+  volume_pg = "software est. volume")
+
+tab_model(lm_invert_pg,
+          pred.labels = pl,
+          dv.labels = "Invertebrate abundance")
+```
+
+
+```{r, warning=FALSE}
+# Boxplot of invert abundance
+log_invert_box <- ggplot(cafi_coral, aes(x= branch, y=log_num_cafi, color = branch))+
+  geom_boxplot(width = 0.5)+
+  geom_jitter()+ # adds data on top of box plot
+  scale_color_manual(values = c("firebrick1", "steelblue2"))+
+  scale_y_continuous(limits= c(0, max(cafi_coral$log_num_cafi + 1)))+
+  theme_classic()+
+  labs(y="Log invert. abundance", x="Coral branching", title = "Log invert. abundance boxplot")
+
+log_invert_box
+
+# Boxplot of invertebrate species richness per coral for both tight and wide branching
+richness_box <- ggplot(cafi_coral, aes(x= branch, y=log_cafi_richness, color = branch))+
+  geom_boxplot(width = 0.5)+
+  geom_jitter()+
+  scale_color_manual(values = c("firebrick1", "steelblue2"))+
+  scale_y_continuous(limits= c(0, max(cafi_coral$log_cafi_richness + 1)))+
+  theme_classic()+
+  labs(y="Invert. sp. richness", x="Coral branching", title = "Invert. sp. richness boxplot")
+
+richness_box
+
+# Boxplot of invertebrate diversity for both tight and wide branching coral
+diversity_box <- ggplot(cafi_coral, aes(x= branch, y=sw, color = branch))+
+  geom_boxplot(width = 0.5)+
+  geom_jitter()+
+  scale_color_manual(values = c("firebrick1", "steelblue2"))+
+  scale_y_continuous(limits= c(0, max(cafi_coral$sw + 0.5)), breaks = c(0, 0.5, 1, 1.5, 2, 2.5, 3))+
+  theme_classic()+
+  labs(y="Invert. diversity", x="Coral branching", title = "Invert. diversity boxplot")
+
+diversity_box
+```
+
+```{r}
+#Q-Q plot separated by group 
+with(cafi_coral, qqPlot(num_cafi[branch == "wide"], dist="norm")) 
+with(cafi_coral, qqPlot(num_cafi[branch == "tight"], dist="norm")) 
+
+#Shapiro Wilk seperated by group
+with(cafi_coral, shapiro.test(num_cafi[branch == "wide"])) 
+with(cafi_coral, shapiro.test(num_cafi[branch == "tight"])) 
+```
+With a $p>0.05$ we fail to reject the null hypothesis that our data is normally distributed for wide branching corals. With a $p<0.05$ we reject the null hypothesis that our data is normally distributed for tight branching corals. Because we are working with smaller data sets, we cannot use the central limit theorem. 
+
+```{r}
+#Levene's test: response variable, group variable
+leveneTest(cafi_coral$num_cafi, cafi_coral$branch)
+```
+With a $p>0.05$ we fail to reject the null hypothesis that our data is normally distributed for tight and wide branching corals. Both groups of corals that have tight and wide branching morphologies have equal variance.
+
+Because tight branching coral is not normally distributed, we could either perform a transformation or non-parametric test. We will try log transforming our data first. A column log transforming the number of inverts has already been created
+
+```{r}
+#Q-Q plot separated by group 
+with(cafi_coral, qqPlot(log_num_cafi[branch == "wide"], dist="norm")) 
+with(cafi_coral, qqPlot(log_num_cafi[branch == "tight"], dist="norm")) 
+
+#Shapiro Wilk seperated by group
+with(cafi_coral, shapiro.test(log_num_cafi[branch == "wide"])) 
+with(cafi_coral, shapiro.test(log_num_cafi[branch == "tight"])) 
+```
+```{r}
+#Levene's test: response variable, group variable
+leveneTest(cafi_coral$log_num_cafi, cafi_coral$branch)
+```
+
+```{r}
+# subset data
+tight <- subset(cafi_coral, branch == "tight")
+wide <- subset(cafi_coral, branch == "wide")
+
+t.test(tight$log_num_cafi, wide$log_num_cafi, var.equal = TRUE)
+```
+With a $p>0.05$ we fail to reject the null hypothesis that the difference between the means of the log transformed invert counts are different from zero. 
+
+##### Since there does not appear to be a signficant difference in invertebrate counts between tight and wide corals, we will now test how well our software estimated method of calculating volume and interstitial space relates to invertebrate counts.
+
+We will first assess $p<0.05$ to test if the linear regression slope was significantly different from zero. Correlation of dependent and independent variables $R^2$ was also included in the tables. 
+
+```{r, message=FALSE}
+#Create graphs of log transformed invertebrate abundance
+log_invert_pg <- ggplot(cafi_coral, aes(x=log_volume_pg, y=log_num_cafi))+
+  geom_point()+
+  geom_smooth(method = lm, se=TRUE)+
+  theme_classic()+
+  #facet_wrap(~branch)+
+  labs(y="log invert. abundance", x= expression(paste("log software est. V cm"^{3})))
+
+log_invert_pg
+
+#Residuals for log transformed data
+lm_log_invert_pg <- lm(log_num_cafi~log_volume_pg, data=cafi_coral)
+par(mfrow=c(2,2))
+plot(lm_log_invert_pg)
+par(mfrow=c(1,1))
+
+#HTML table from regression results
+pl <- c(
+  '(Intercept)' = "Intercept",
+  log_volume_pg = "Log software est. V"
+)
+tab_model(lm_log_invert_pg,
+          pred.labels = pl,
+          dv.labels = "Invertebrate abundance")
+```
+
+```{r}
+log_invert_field <- ggplot(cafi_coral, aes(x=log_volume_field, y=log_num_cafi))+
+  geom_point()+
+  geom_smooth(method = lm, se=TRUE)+
+  theme_classic()+
+  #facet_wrap(~branch)+
+  labs(y="log invert. abundance", x= expression(paste("log elipsoid V cm"^{3})))
+
+log_invert_field
+
+lm_log_invert_field <- lm(log_num_cafi~log_volume_field, data=cafi_coral)
+par(mfrow=c(2,2))
+plot(lm_log_invert_field)
+par(mfrow=c(1,1))
+
+#HTML table from regression results
+pl <- c(
+  '(Intercept)' = "Intercept",
+  log_volume_field = "Log elispoid V"
+)
+tab_model(lm_log_invert_field,
+          pred.labels = pl,
+          dv.labels = "Invertebrate abundance")
+```
+
+
+```{r, message=FALSE}
+#Create graphs of log transformed invertebrate abundance
+log_cafi_space <- ggplot(cafi_coral, aes(x=log_interstitial_space, y=log_num_cafi))+
+  geom_point()+
+  geom_smooth(method = lm, se=TRUE)+
+  theme_classic()+
+  #facet_wrap(~branch)+
+  labs(y="Log invert. abundance", x= expression(paste("Log interstitial space cm"^{3})), title = "Log 3D available space and inverts")
+
+log_space_rich <- ggplot(cafi_coral, aes(x=log_interstitial_space, y=log_cafi_richness))+
+  geom_point()+
+  geom_smooth(method = lm, se=TRUE)+
+  theme_classic()+
+  #facet_wrap(~branch)+
+  labs(y="Log sp. richness", x= expression(paste("Log interstitial space cm"^{3})), title = "Log available space and sp. richness")
+
+fig2 <- ggarrange(log_cafi_space, log_space_rich,
+                     ncol = 2, nrow = 1) #combines all graphs
+fig2
+
+#Residuals for log transformed data
+log_lm_space <- lm(log_num_cafi~log_interstitial_space, data=cafi_coral)
+par(mfrow=c(2,2))
+plot(log_lm_space)
+par(mfrow=c(1,1))
+
+log_lm_rich <- lm(log_cafi_richness~log_interstitial_space, data=cafi_coral)
+par(mfrow=c(2,2))
+plot(log_lm_rich)
+par(mfrow=c(1,1))
+```
+
+```{r}
+#HTML table from regression results
+pl <- c(
+  '(Intercept)' = "Intercept",
+  log_interstitial_space = "Log interstitial space"
+)
+tab_model(log_lm_space, log_lm_rich,
+          pred.labels = pl,
+          dv.labels = c("Log invertebrate abundance", "Log species richness"))
+```
+
+Invertebrate abundance and species richness showed $p<0.05$ for both volume and interstitial space. We reject the null hypothesis that the slope of the regression line is equal to zero. The correlations for all four linear regressions were $R^2>30$
+
+##### We will now fit a single variable Yi=β0+β1Xi+ϵi or multivariable linear model Y=β0+β1X1+β2X2+...+βnXn+ϵ to our data using different combinations of explanatory variables. Our response variable will be abundance of invertebrates. We will use AIC and R-squared values to determine the best fit model. 
+
+```{r}
+#Visualize correlations between variables
+# subset data
+log_tight <- cafi_coral %>%
+  subset(branch == "tight") %>%
+  dplyr::select(log_num_cafi,log_volume_pg,log_SA,log_interstitial_space,log_sphericity,convexity,packing)
+pairs.panels(log_tight, 
+             method="pearson", 
+             hist.col = "white",
+             density=TRUE,
+             ellipses=FALSE)
+
+log_wide <- cafi_coral %>%
+  subset(branch == "wide") %>%
+  dplyr::select(log_num_cafi,log_volume_pg,log_SA,log_interstitial_space,log_sphericity,convexity,packing)
+pairs.panels(log_wide, 
+             method="pearson", 
+             hist.col = "white",
+             density=TRUE,
+             ellipses=FALSE)
+
+log_cafi_coral <- cafi_coral %>%
+  dplyr::select(log_num_cafi,log_volume_pg,log_SA,log_interstitial_space,log_sphericity,convexity,packing)
+pairs.panels(log_cafi_coral, 
+             method="pearson", 
+             hist.col = "white",
+             density=TRUE,
+             ellipses=FALSE)
+```
+
+```{r}
+plot1 <- ggplot(cafi_coral, aes(x=log_volume_pg, y=log_num_cafi))+ 
+  geom_point()+
+  geom_smooth(method=lm, se=TRUE)+
+  theme_classic()+
+  theme(axis.title.y=element_blank(),
+        legend.position="none")+
+  labs(x=expression(paste("Log software est. V cm"^{3})))
+
+
+plot2 <- ggplot(cafi_coral, aes(x=log_volume_field, y=log_num_cafi))+ 
+  geom_point()+
+  geom_smooth(method=lm, se=TRUE)+
+  theme_classic()+
+  theme(axis.title.y=element_blank(),
+        legend.position="none")+
+  labs(x=expression(paste("Log elipsoid V cm"^{3})))
+
+
+plot3 <- ggplot(cafi_coral, aes(x=log_sphericity, y=log_num_cafi))+ 
+  geom_point()+
+  geom_smooth(method=lm, se=TRUE)+
+  theme_classic()+
+  theme(axis.title.y=element_blank(),
+        legend.position="none")+
+  labs(x="Log sphericity")
+
+plot4 <- ggplot(cafi_coral, aes(x=packing, y=log_num_cafi))+ 
+  geom_point()+
+  geom_smooth(method=lm, se=TRUE)+
+  theme_classic()+
+  theme(axis.title.y=element_blank(),
+        legend.position="none")+
+  labs(x="Packing")
+
+fig3 <- ggarrange(plot1,plot2,plot3,plot4,
+                     ncol = 2, nrow=2)
+  
+annotate_figure(fig3,
+                top = text_grob("Morphological Measurements", color = "black", face = "bold", size = 14),
+                left = text_grob("Log invert. abundance", color = "black",
+                                   rot = 90, face = "bold", size = 12),
+                fig.lab = "Figure 1", fig.lab.face = "bold") 
+```
+
+```{r}
+#Linear model for log sphericity and invert abundance
+lm_sphericity <- lm(log_num_cafi~log_sphericity, data=cafi_coral)
+par(mfrow=c(2,2))
+plot(lm_sphericity)
+par(mfrow=c(1,1))
+
+#HTML table from regression results
+pl <- c(
+  '(Intercept)' = "Intercept",
+  log_sphericity = "Log sphericity"
+)
+tab_model(lm_sphericity,
+          pred.labels = pl,
+          dv.labels = "Invertebrate abundance")
+
+#Linear model for packing and invert abundance
+lm_packing <- lm(log_num_cafi~packing, data=cafi_coral)
+par(mfrow=c(2,2))
+plot(lm_packing)
+par(mfrow=c(1,1))
+
+#HTML table from regression results
+pl <- c(
+  '(Intercept)' = "Intercept",
+   packing = "Packing"
+)
+tab_model(lm_packing,
+          pred.labels = pl,
+          dv.labels = "Invertebrate abundance")
+
+#Linear model for convexity and invert abundance
+lm_convexity <- lm(log_num_cafi~convexity, data=cafi_coral)
+par(mfrow=c(2,2))
+plot(lm_convexity)
+par(mfrow=c(1,1))
+
+#HTML table from regression results
+pl <- c(
+  '(Intercept)' = "Intercept",
+   convexity = "Convexity"
+)
+tab_model(lm_convexity,
+          pred.labels = pl,
+          dv.labels = "Invertebrate abundance")
+```
+
+Log transformation appears normal. Log transformed volume, surface area, interstitial space, and packing were morphological measurements that had a positive correlation to number of cafi. Log transformed sphericity has a negative correlation to cafi. Because our data does not contain any 0 counts for invertebrate (meaning every coral contained an invertebrate population) we applied a log transformation to our count data. We will compare our log transformed poisson general linear model with a quasi-poisson general linear model with non-log transformed counts. 
+
+VIF>10 will be removed from the dataset 
+
+```{r}
+lm1 <- lm(log_num_cafi~log_volume_pg+log_sphericity+packing, data=log_cafi_coral)
+vif(lm1) 
+
+lm_tight <- lm(log_num_cafi~log_volume_pg+packing, data=log_tight)
+vif(lm_tight)
+
+lm_wide <- lm(log_num_cafi~log_volume_pg+log_sphericity+packing, data=log_wide)
+vif(lm_wide)
+```
+
+```{r}
+res1=lm1$residuals
+
+#Test normality assumption on residuals
+par(mfrow=c(2,2))
+plot(lm1)
+par(mfrow=c(1,1))
+
+hist(res1)
+shapiro.test(res1)
+
+#Data is FINALY! normal
+```
+
+```{r}
+fullmodel <- lm(log_num_cafi~log_volume_pg+log_sphericity+packing, data=log_cafi_coral)
+nullmodel <- lm(log_num_cafi~1, data=log_cafi_coral)
+
+stepAIC(fullmodel, scope = c(upper = fullmodel, lower = nullmodel), direction = "both")
+```
+
+```{r}
+fullmodel_tight <- lm(log_num_cafi~log_volume_pg+log_sphericity+packing, data=log_tight)
+nullmodel_tight <- lm(log_num_cafi~1, data=log_tight)
+
+stepAIC(fullmodel_tight, scope = c(upper = fullmodel_tight, lower = nullmodel_tight), direction = "both")
+```
+
+```{r}
+fullmodel_wide <- lm(log_num_cafi~log_volume_pg+log_sphericity+packing, data=log_wide)
+nullmodel_wide <- lm(log_num_cafi~1, data=log_wide)
+
+stepAIC(fullmodel_wide, scope = c(upper = fullmodel_wide, lower = nullmodel_wide), direction = "both")
+```
+
+
