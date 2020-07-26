@@ -244,10 +244,20 @@ pairs.panels(cor_var,
              ellipses=FALSE,
              scale=TRUE)
 
-#Use log transformed data
+#Use sqrt transformed data
 cor_var2 <- cafi_coral %>%
-  dplyr::select(log_num_cafi,log_volume_pg,log_volume_field,log_SA,log_avg_w,log_interstitial_space,log_sphericity,convexity,packing)
+  dplyr::select(sqrt_num_cafi,sqrt_volume_pg,sqrt_volume_field,sqrt_SA,sqrt_avg_w,sqrt_interstitial_space,sqrt_sphericity,convexity,packing)
 pairs.panels(cor_var2, 
+             method="pearson", 
+             hist.col = "white",
+             density=TRUE,
+             ellipses=FALSE,
+             scale=TRUE)
+
+#Use log transformed data
+cor_var3 <- cafi_coral %>%
+  dplyr::select(log_num_cafi,log_volume_pg,log_volume_field,log_SA,log_avg_w,log_interstitial_space,log_sphericity,convexity,packing)
+pairs.panels(cor_var3, 
              method="pearson", 
              hist.col = "white",
              density=TRUE,
@@ -389,19 +399,109 @@ annotate_figure(fig1,
 
 #### Graphically analyze software estimated volume and elipsoid volume 
 
-The below graphs represent how invertebrate abundance relates to both volume measurements. We will test how well our software estimated method of calculating volume and interstitial space relates to invertebrate counts. We will first assess $p<0.05$ to test if the linear regression slope was significantly different from zero. Correlation of dependent and independent variables $R^2$ was also included in the tables.
+The below graphs compare the software estimated volume, height, length and width measurements to the same coral's manual measurements. A one to one line was fit to show how differences in measuremets vary with increasing coral size. 
 
 ```{r, message=FALSE}
-pg_field <- ggplot(cafi_coral, aes(x=volume_pg, y=volume_field))+ 
+#Volume
+volume <- ggplot(dim_bind, aes(x=volume_pg, y=volume_field))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE)+
-  scale_y_continuous(breaks=seq(0,max(cafi_coral$volume_field), by = 5000))+
-  scale_x_continuous(breaks=seq(0,max(cafi_coral$volume_pg), by = 2000))+
+  scale_y_continuous(breaks=seq(0,max(dim_bind$volume_field), by = 5000))+
+  scale_x_continuous(breaks=seq(0,max(dim_bind$volume_pg), by = 2000))+
   theme_bw()+
-  labs(y= expression(paste("elipsoid V cm"^{3})), x= expression(paste("software V cm"^{3})))
+  labs(y= expression(paste("elipsoid V cm"^{3})), x= expression(paste("software V cm"^{3})))+
+  geom_abline(intercept = 0, slope = 1, color='blue')
+
+#Height
+height <- ggplot(dim_bind, aes(x=height_pg, y=height_field))+ 
+  geom_point()+
+  geom_smooth(method=lm, se=TRUE)+
+  scale_y_continuous(breaks=seq(0,max(dim_bind$height_field), by = 5000))+
+  scale_x_continuous(breaks=seq(0,max(dim_bind$height_pg), by = 2000))+
+  theme_bw()+
+  labs(y= "Manual h cm", x= "Software h cm")+
+  geom_abline(intercept = 0, slope = 1, color='blue')
+
+#Length
+length <- ggplot(dim_bind, aes(x=length_pg, y=length_field))+ 
+  geom_point()+
+  geom_smooth(method=lm, se=TRUE)+
+  scale_y_continuous(breaks=seq(0,max(dim_bind$length_field), by = 5000))+
+  scale_x_continuous(breaks=seq(0,max(dim_bind$length_pg), by = 2000))+
+  theme_bw()+
+  labs(y= "Manual l cm", x= "Software l cm")+
+  geom_abline(intercept = 0, slope = 1, color='blue')
+
+#Width
+width <- ggplot(dim_bind, aes(x=width_pg, y=width_field))+ 
+  geom_point()+
+  geom_smooth(method=lm, se=TRUE)+
+  scale_y_continuous(breaks=seq(0,max(dim_bind$width_field), by = 5000))+
+  scale_x_continuous(breaks=seq(0,max(dim_bind$width_pg), by = 2000))+
+  theme_bw()+
+  labs(y= "Manual w cm", x= "Software w cm")+
+  geom_abline(intercept = 0, slope = 1, color='blue')
   
-pg_field
+fig2 <- ggarrange(volume, height, length, width,
+          ncol = 2, nrow = 2)
+
+annotate_figure(fig2,
+                top = text_grob("Manual v. software measurements", color = "black", face = "bold", size = 14),
+                fig.lab = "Figure 1", fig.lab.face = "bold")  
 ```
+
+The below graphs compare the squareroot transformed software estimated volume, height, length and width measurements to the same coral's squareroot transformed manual measurements. A one to one line was fit to show how differences in measuremets vary with increasing coral size.
+
+```{r, message=FALSE}
+#Sqrt volume
+volume <- ggplot(dim_bind, aes(x=volume_pg, y=volume_field))+ 
+  geom_point()+
+  geom_smooth(method=lm, se=TRUE)+
+  scale_y_continuous(breaks=seq(0,max(dim_bind$volume_field), by = 5000))+
+  scale_x_continuous(breaks=seq(0,max(dim_bind$volume_pg), by = 2000))+
+  theme_bw()+
+  labs(y= expression(paste("elipsoid V cm"^{3})), x= expression(paste("software V cm"^{3})))+
+  geom_abline(intercept = 0, slope = 1, color='blue')
+
+#Sqrt height
+height <- ggplot(dim_bind, aes(x=height_pg, y=height_field))+ 
+  geom_point()+
+  geom_smooth(method=lm, se=TRUE)+
+  scale_y_continuous(breaks=seq(0,max(dim_bind$height_field), by = 5000))+
+  scale_x_continuous(breaks=seq(0,max(dim_bind$height_pg), by = 2000))+
+  theme_bw()+
+  labs(y= "Manual h cm", x= "Software h cm")+
+  geom_abline(intercept = 0, slope = 1, color='blue')
+
+#Sqrt length
+length <- ggplot(dim_bind, aes(x=length_pg, y=length_field))+ 
+  geom_point()+
+  geom_smooth(method=lm, se=TRUE)+
+  scale_y_continuous(breaks=seq(0,max(dim_bind$length_field), by = 5000))+
+  scale_x_continuous(breaks=seq(0,max(dim_bind$length_pg), by = 2000))+
+  theme_bw()+
+  labs(y= "Manual l cm", x= "Software l cm")+
+  geom_abline(intercept = 0, slope = 1, color='blue')
+
+#Sqrt width
+width <- ggplot(dim_bind, aes(x=width_pg, y=width_field))+ 
+  geom_point()+
+  geom_smooth(method=lm, se=TRUE)+
+  scale_y_continuous(breaks=seq(0,max(dim_bind$width_field), by = 5000))+
+  scale_x_continuous(breaks=seq(0,max(dim_bind$width_pg), by = 2000))+
+  theme_bw()+
+  labs(y= "Manual w cm", x= "Software w cm")+
+  geom_abline(intercept = 0, slope = 1, color='blue')
+  
+fig2 <- ggarrange(volume, height, length, width,
+          ncol = 2, nrow = 2)
+
+annotate_figure(fig2,
+                top = text_grob("Manual v. software measurements", color = "black", face = "bold", size = 14),
+                fig.lab = "Figure 1", fig.lab.face = "bold")  
+```
+
+The below graphs represent how invertebrate abundance relates to both volume measurements. We will test how well our software estimated method of calculating volume and interstitial space relates to invertebrate counts. We will first assess $p<0.05$ to test if the linear regression slope was significantly different from zero. Correlation of dependent and independent variables $R^2$ was also included in the tables.
 
 ```{r, message=FALSE}
 invert_field <- ggplot(cafi_coral, aes(x=volume_field, y=num_cafi))+ 
