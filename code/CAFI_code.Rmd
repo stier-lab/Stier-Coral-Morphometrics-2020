@@ -16,6 +16,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r, message=FALSE}
 # Load libraries
 library(here)
+library(dplyr)
 library(tidyverse)
 library(vegan)
 library(reshape)
@@ -32,7 +33,6 @@ library(car)
 library(MASS)
 library(gridExtra)
 library(grid)
-library(plyr)
 ```
 
 ```{r}
@@ -154,6 +154,8 @@ cafi_coral$log_sphericity <- log(cafi_coral$sphericity)
 #Sqrt transform variables
 cafi_coral$sqrt_num_cafi <- sqrt(cafi_coral$num_cafi)
 cafi_coral$sqrt_volume_pg <- sqrt(cafi_coral$volume_pg)
+cafi_coral$sqrt_avg_w_cm <- sqrt(cafi_coral$avg_w_cm)
+cafi_coral$sqrt_volume_field <- sqrt(cafi_coral$volume_field)
 cafi_coral$sqrt_interstitial_space <- sqrt(cafi_coral$interstitial_space)
 cafi_coral$sqrt_SA <- sqrt(cafi_coral$SA)
 cafi_coral$sqrt_cafi_richness <- sqrt(cafi_coral$cafi_richness)
@@ -164,6 +166,9 @@ cafi_coral$sqrt_sphericity <- sqrt(cafi_coral$sphericity)
 
 Look for unimodal or bimodal curve in data for average branch distance, interstitial space and convexity. Compare these curves to branch distances defined in the field to branch distances defined by convexity measuremnt of 0.5
 ```{r}
+#Load plyr package
+library(plyr)
+
 #Classification based on convexity measuremnts
 mu <- ddply(cafi_coral, "branch", 
             summarise, grp.mean=mean(avg_w_cm, na.rm=TRUE))
@@ -224,8 +229,11 @@ d6 <- ggplot(coral_dim, aes(x=convexity, fill=branch))+
 ```
 
 ```{r}
-ggarrange(d1,d2,d3,d4,d5,d6,
+fig1 <- ggarrange(d1,d2,d3,d4,d5,d6,
           ncol = 3, nrow = 2)
+
+annotate_figure(fig1,
+                fig.lab = "Figure 1", fig.lab.face = "bold") 
 ```
 
 
@@ -246,7 +254,7 @@ pairs.panels(cor_var,
 
 #Use sqrt transformed data
 cor_var2 <- cafi_coral %>%
-  dplyr::select(sqrt_num_cafi,sqrt_volume_pg,sqrt_volume_field,sqrt_SA,sqrt_avg_w,sqrt_interstitial_space,sqrt_sphericity,convexity,packing)
+  dplyr::select(sqrt_num_cafi,sqrt_volume_pg,sqrt_volume_field,sqrt_SA,sqrt_avg_w_cm,sqrt_interstitial_space,sqrt_sphericity,convexity,packing)
 pairs.panels(cor_var2, 
              method="pearson", 
              hist.col = "white",
@@ -386,14 +394,14 @@ g_legend<-function(a.gplot){
 
 mylegend<-g_legend(g6)
        
-fig1 <- ggarrange(g1,g2,g3,g4,g5,g6,
+fig2 <- ggarrange(g1,g2,g3,g4,g5,g6,
                      ncol = 3, nrow=2)
   
-annotate_figure(fig1,
+annotate_figure(fig2,
                 top = text_grob("Morphological Measurements", color = "black", face = "bold", size = 14),
                 bottom = text_grob(expression(paste("Log Vol. cm"^{3})), color = "black",
                                    face = "bold", size = 12),
-                fig.lab = "Figure 1", fig.lab.face = "bold")  
+                fig.lab = "Figure 2", fig.lab.face = "bold")  
 ```
 
 
@@ -403,6 +411,7 @@ The below graphs compare the software estimated volume, height, length and width
 
 ```{r, message=FALSE}
 #Volume
+#summary(lm(formula = volume_pg ~ volume_field, data = dim_bind))
 volume <- ggplot(dim_bind, aes(x=volume_pg, y=volume_field))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE)+
@@ -410,95 +419,69 @@ volume <- ggplot(dim_bind, aes(x=volume_pg, y=volume_field))+
   scale_x_continuous(breaks=seq(0,max(dim_bind$volume_pg), by = 2000))+
   theme_bw()+
   labs(y= expression(paste("elipsoid V cm"^{3})), x= expression(paste("software V cm"^{3})))+
-  geom_abline(intercept = 0, slope = 1, color='blue')
+  geom_abline(intercept = 611.4145, slope = 1, color='blue') #x-intercept pulled from summary data
 
 #Height
+#summary(lm(formula = height_field ~ height_pg, data = dim_bind))
 height <- ggplot(dim_bind, aes(x=height_pg, y=height_field))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE)+
-  scale_y_continuous(breaks=seq(0,max(dim_bind$height_field), by = 5000))+
-  scale_x_continuous(breaks=seq(0,max(dim_bind$height_pg), by = 2000))+
   theme_bw()+
   labs(y= "Manual h cm", x= "Software h cm")+
-  geom_abline(intercept = 0, slope = 1, color='blue')
+  geom_abline(intercept = 2.44284, slope = 1, color='blue') 
 
 #Length
+#summary(lm(formula = length_field ~ length_pg, data = dim_bind))
 length <- ggplot(dim_bind, aes(x=length_pg, y=length_field))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE)+
-  scale_y_continuous(breaks=seq(0,max(dim_bind$length_field), by = 5000))+
-  scale_x_continuous(breaks=seq(0,max(dim_bind$length_pg), by = 2000))+
   theme_bw()+
   labs(y= "Manual l cm", x= "Software l cm")+
-  geom_abline(intercept = 0, slope = 1, color='blue')
+  geom_abline(intercept = 0.52596, slope = 1, color='blue')
 
 #Width
+#summary(lm(formula = width_field ~ width_pg, data = dim_bind))
 width <- ggplot(dim_bind, aes(x=width_pg, y=width_field))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE)+
-  scale_y_continuous(breaks=seq(0,max(dim_bind$width_field), by = 5000))+
-  scale_x_continuous(breaks=seq(0,max(dim_bind$width_pg), by = 2000))+
   theme_bw()+
   labs(y= "Manual w cm", x= "Software w cm")+
-  geom_abline(intercept = 0, slope = 1, color='blue')
+  geom_abline(intercept = 2.13398, slope = 1, color='blue')
   
-fig2 <- ggarrange(volume, height, length, width,
+fig3 <- ggarrange(volume, height, length, width,
           ncol = 2, nrow = 2)
 
-annotate_figure(fig2,
+annotate_figure(fig3,
                 top = text_grob("Manual v. software measurements", color = "black", face = "bold", size = 14),
-                fig.lab = "Figure 1", fig.lab.face = "bold")  
+                fig.lab = "Figure 3", fig.lab.face = "bold")  
 ```
 
-The below graphs compare the squareroot transformed software estimated volume, height, length and width measurements to the same coral's squareroot transformed manual measurements. A one to one line was fit to show how differences in measuremets vary with increasing coral size.
+The below graphs compare the squareroot transformed software estimated volume to the same coral's squareroot transformed elipsoid volume. A one to one line was fit to show how differences in measuremets vary with increasing coral size.
 
 ```{r, message=FALSE}
 #Sqrt volume
-volume <- ggplot(dim_bind, aes(x=volume_pg, y=volume_field))+ 
+#summary(lm(formula = sqrt_volume_field ~ sqrt_volume_pg, data = cafi_coral))
+sqrt_volume <- ggplot(cafi_coral, aes(x=sqrt_volume_pg, y=sqrt_volume_field))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE)+
-  scale_y_continuous(breaks=seq(0,max(dim_bind$volume_field), by = 5000))+
-  scale_x_continuous(breaks=seq(0,max(dim_bind$volume_pg), by = 2000))+
   theme_bw()+
-  labs(y= expression(paste("elipsoid V cm"^{3})), x= expression(paste("software V cm"^{3})))+
-  geom_abline(intercept = 0, slope = 1, color='blue')
+  labs(y= expression(paste("sqrt elipsoid V cm"^{3})), x= expression(paste("sqrt software V cm"^{3})))+
+  geom_abline(intercept =  4.207, slope = 1, color='blue') #x-intercept pulled from summary data
 
-#Sqrt height
-height <- ggplot(dim_bind, aes(x=height_pg, y=height_field))+ 
+#summary(lm(formula = log_volume_field ~ log_volume_pg, data = cafi_coral))
+log_volume <- ggplot(cafi_coral, aes(x=log_volume_pg, y=log_volume_field))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE)+
-  scale_y_continuous(breaks=seq(0,max(dim_bind$height_field), by = 5000))+
-  scale_x_continuous(breaks=seq(0,max(dim_bind$height_pg), by = 2000))+
   theme_bw()+
-  labs(y= "Manual h cm", x= "Software h cm")+
-  geom_abline(intercept = 0, slope = 1, color='blue')
+  labs(y= expression(paste("log elipsoid V cm"^{3})), x= expression(paste("log software V cm"^{3})))+
+  geom_abline(intercept =   0.80673, slope = 1, color='blue') #x-intercept pulled from summary data
 
-#Sqrt length
-length <- ggplot(dim_bind, aes(x=length_pg, y=length_field))+ 
-  geom_point()+
-  geom_smooth(method=lm, se=TRUE)+
-  scale_y_continuous(breaks=seq(0,max(dim_bind$length_field), by = 5000))+
-  scale_x_continuous(breaks=seq(0,max(dim_bind$length_pg), by = 2000))+
-  theme_bw()+
-  labs(y= "Manual l cm", x= "Software l cm")+
-  geom_abline(intercept = 0, slope = 1, color='blue')
+fig4 <- ggarrange(volume, sqrt_volume, log_volume,
+          ncol = 3, nrow = 1)
 
-#Sqrt width
-width <- ggplot(dim_bind, aes(x=width_pg, y=width_field))+ 
-  geom_point()+
-  geom_smooth(method=lm, se=TRUE)+
-  scale_y_continuous(breaks=seq(0,max(dim_bind$width_field), by = 5000))+
-  scale_x_continuous(breaks=seq(0,max(dim_bind$width_pg), by = 2000))+
-  theme_bw()+
-  labs(y= "Manual w cm", x= "Software w cm")+
-  geom_abline(intercept = 0, slope = 1, color='blue')
-  
-fig2 <- ggarrange(volume, height, length, width,
-          ncol = 2, nrow = 2)
-
-annotate_figure(fig2,
-                top = text_grob("Manual v. software measurements", color = "black", face = "bold", size = 14),
-                fig.lab = "Figure 1", fig.lab.face = "bold")  
+annotate_figure(fig4,
+                top = text_grob("Compare transformations", color = "black", face = "bold", size = 14),
+                fig.lab = "Figure 4", fig.lab.face = "bold")  
 ```
 
 The below graphs represent how invertebrate abundance relates to both volume measurements. We will test how well our software estimated method of calculating volume and interstitial space relates to invertebrate counts. We will first assess $p<0.05$ to test if the linear regression slope was significantly different from zero. Correlation of dependent and independent variables $R^2$ was also included in the tables.
@@ -509,8 +492,6 @@ invert_field <- ggplot(cafi_coral, aes(x=volume_field, y=num_cafi))+
   geom_smooth(method=lm, se=TRUE)+
   theme_bw()+
   labs(y="invert abundance", x= expression(paste("elipsoid V cm"^{3})))
-  
-invert_field
 
 lm_invert_field <- lm(num_cafi~volume_field, data=cafi_coral)
 
@@ -529,8 +510,6 @@ log_invert_field <- ggplot(cafi_coral, aes(x=log_volume_field, y=log_num_cafi))+
   theme_classic()+
   #facet_wrap(~branch)+
   labs(y="log invert. abundance", x= expression(paste("log elipsoid V cm"^{3})))
-
-log_invert_field
 
 lm_log_invert_field <- lm(log_num_cafi~log_volume_field, data=cafi_coral)
 par(mfrow=c(2,2))
@@ -553,8 +532,6 @@ invert_pg <- ggplot(cafi_coral, aes(x=volume_pg, y=num_cafi))+
   geom_smooth(method=lm, se=TRUE)+
   theme_bw()+
   labs(y="invert abundance", x= expression(paste("software V cm"^{3})))
-  
-invert_pg
 
 lm_invert_pg <- lm(num_cafi~volume_pg, data=cafi_coral)
 
@@ -575,8 +552,6 @@ log_invert_pg <- ggplot(cafi_coral, aes(x=log_volume_pg, y=log_num_cafi))+
   #facet_wrap(~branch)+
   labs(y="log invert. abundance", x= expression(paste("log software est. V cm"^{3})))
 
-log_invert_pg
-
 #Residuals for log transformed data
 lm_log_invert_pg <- lm(log_num_cafi~log_volume_pg, data=cafi_coral)
 par(mfrow=c(2,2))
@@ -591,6 +566,13 @@ pl <- c(
 tab_model(lm_log_invert_pg,
           pred.labels = pl,
           dv.labels = "Invertebrate abundance")
+
+fig5 <- ggarrange(invert_field, invert_pg, log_invert_field, log_invert_pg,
+          ncol = 2, nrow = 2)
+
+annotate_figure(fig5,
+                top = text_grob("Invert abundance and volume", color = "black", face = "bold", size = 14),
+                fig.lab = "Figure 5", fig.lab.face = "bold")  
 ```
 
 When comparing elipsoid volume to software estimated volume we see significant p-values for both as represented in the above tables. Software estimated volume measurements and invert. abundance show a much lower p value indicating a greater slope from zero as well as having a higher correlation $R^2$ value. When data was log transformed, there was little to no difference in p-values or correlation. 
