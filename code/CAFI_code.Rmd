@@ -1126,6 +1126,9 @@ stepAIC(fullmodel_wide, scope = c(upper = fullmodel_wide, lower = nullmodel_wide
 We will compare our log transformed poisson general linear model with a quasi-poisson general linear model with non-log transformed counts. 
 
 ```{r, include=FALSE}
-glm1 <- glm(num_cafi~volume_pg+interstitial_space+sphericity+packing, family=quasipoisson, data=cafi_coral)
+glm1 <- glm(num_cafi~volume_pg+interstitial_space, family=quasipoisson, data=cafi_coral)
 summary(glm1)
+
+glm2 <- glm(num_cafi~volume_field+avg_w_cm, family=quasipoisson, data=cafi_coral)
+summary(glm2)
 ```
