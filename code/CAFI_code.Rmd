@@ -38,8 +38,8 @@ library(AER)
 
 ```{r, include=FALSE}
 #Load data 
-branch_width <- read.csv(here("photogrammetry_data/branchwidth_data.csv"))
-coral_pg <- read.csv(here("photogrammetry_data/galvan_journ_datasheet_v2.csv"))
+branch_width <- read.csv(here("photogrammetry_data/branchwidth_data.csv")) 
+coral_pg <- read.csv(here("photogrammetry_data/galvan_journ_datasheet_v2.csv")) 
 coral_field <- read.csv(here("photogrammetry_data/field_experiment_colony_measurements_moorea_summer2019.csv"))
 cafi_surveys <- read.csv(here("cafi_data/revised_cafi_data_moorea_summer2019_11_27.csv"))
 cafi_field <- read.csv(here("cafi_data/prelim_cafi_counts_moorea_summer2019.csv"))
@@ -55,7 +55,7 @@ Data was filtered to only include invertebrates identified in coral colonies. Th
 #Incorporate cleaned CAFI data
 updated_cafi2 <- updated_cafi %>% filter(str_detect(coral_id, "^FE")) %>%
   dplyr::select(master_sort, coral_id, code, type, search_term, lowest_level, phylum, genus, species, general_notes) %>%
-  subset(phylum!="Chordata")
+  subset(phylum!="Chordata") #filter out vertebrates
 ```
 
 ```{r, warning=FALSE, include=FALSE}
@@ -123,9 +123,9 @@ coral_dim$packing <- coral_dim$SA / coral_dim$max_hull_SA #how much of an object
 
 coral_dim$sphericity <- ((3.14^(1/3))*((6*coral_dim$volume_pg)^(2/3)))/coral_dim$SA #calculate sphericity or how close the object is to a sphere
 
-coral_dim$diff_est <- coral_dim$volume_field-coral_dim$volume_pg
+coral_dim$diff_est <- coral_dim$volume_field-coral_dim$volume_pg #actual overestimation
 
-coral_dim$prop_est <- (coral_dim$volume_field - coral_dim$volume_pg)/coral_dim$volume_pg
+coral_dim$prop_est <- (coral_dim$volume_field - coral_dim$volume_pg)/coral_dim$volume_pg #proportion overestimated 
 
 coral_dim <- coral_dim %>% 
   dplyr::select(coral_id, branch, cafi, size_class, volume_field, volume_pg, SA, height_pg, length_pg, width_pg, avg_w_cm, interstitial_space, SAV, convexity, packing, sphericity, diff_est, prop_est) %>%
@@ -311,7 +311,7 @@ dim_bind <- merge(dim_pg, dim_field, by="coral_id") %>%
 
 Since the corals are not independent, that is, they were taken on the same coral but with different methods, we will consider a paired t-test with dependent samples. Height, length and width measurements are also subjective since they may have been taken from different areas on the coral. We will first check for normallity assumptions. Normality will be checked with a qqplot.
 
-```{r, include=FALSE}
+```{r, include=TRUE}
 par(mfrow=c(3,3))
 qqPlot(dim_bind$height_pg, dist="norm")
 qqPlot(dim_bind$height_field, dist="norm")
@@ -351,6 +351,7 @@ We reject the null hypothesis that the true difference in means is equal to zero
 #### Comparing morphological measurements between tight and wide branching corals
 
 ```{r, message=FALSE, include=FALSE}
+#Log SA
 g1 <- ggplot(cafi_coral, aes(x=log_volume_pg, y=log_SA, shape=branch, color=branch, linetype=branch))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE, aes(fill=branch))+
@@ -359,6 +360,7 @@ g1 <- ggplot(cafi_coral, aes(x=log_volume_pg, y=log_SA, shape=branch, color=bran
         legend.position="none")+
   labs(y=expression(paste("Log SA cm"^{2})))
 
+#Log avg. width
 g2 <- ggplot(cafi_coral, aes(x=log_volume_pg, y=log_avg_w, shape=branch, color=branch, linetype=branch))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE, aes(fill=branch))+
@@ -367,6 +369,7 @@ g2 <- ggplot(cafi_coral, aes(x=log_volume_pg, y=log_avg_w, shape=branch, color=b
         legend.position="none")+
   labs(y="Log branch distance cm")
 
+#Log IS
 g3 <- ggplot(cafi_coral, aes(x=log_volume_pg, y=log_interstitial_space, shape=branch, color=branch, linetype=branch))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE, aes(fill=branch))+
@@ -375,6 +378,7 @@ g3 <- ggplot(cafi_coral, aes(x=log_volume_pg, y=log_interstitial_space, shape=br
         legend.position="none")+
   labs(y=expression(paste("Log space cm"^{3})))
 
+#Log Sphericity
 g4 <- ggplot(cafi_coral, aes(x=log_volume_pg, y=log_sphericity, shape=branch, color=branch, linetype=branch))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE, aes(fill=branch))+
@@ -383,6 +387,7 @@ g4 <- ggplot(cafi_coral, aes(x=log_volume_pg, y=log_sphericity, shape=branch, co
         legend.position="none")+
   labs(y="Log sphericity")
 
+#Convexity
 g5 <- ggplot(cafi_coral, aes(x=log_volume_pg, y=convexity, shape=branch, color=branch, linetype=branch))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE, aes(fill=branch))+
@@ -391,6 +396,7 @@ g5 <- ggplot(cafi_coral, aes(x=log_volume_pg, y=convexity, shape=branch, color=b
         legend.position="none")+
   labs(y="Convexity", x=expression(paste("Log Vol. cm"^{3})))
 
+#Packing
 g6 <- ggplot(cafi_coral, aes(x=log_volume_pg, y=packing, shape=branch, color=branch, linetype=branch))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE, aes(fill=branch))+
@@ -483,8 +489,10 @@ plot_est <- ggplot(cafi_coral, aes(x=volume_pg, y=diff_est, shape=branch, color=
    labs(y= expression(paste("elipsoid overestim. cm"^{3})), x= expression(paste("software V cm"^{3})))+
   theme(legend.position="none")
 
-lm_plot_est <- lm(diff_est~volume_pg+branch, data=cafi_coral)
+#Linear Model
+lm_plot_est <- lm(diff_est~volume_pg+branch, data=cafi_coral) 
 
+#Check normality, homoscedasticity, linearity
 par(mfrow=c(2,2))
 plot(lm_plot_est)
 par(mfrow=c(1,1))
@@ -498,8 +506,10 @@ plot_prop <- ggplot(cafi_coral, aes(x=volume_pg, y=prop_est, shape=branch, color
   theme_bw()+
    labs(y= "Proportion overestim.", x= expression(paste("software V cm"^{3})))
 
-lm_plot_prop <- lm(prop_est~volume_pg+branch, data=cafi_coral)
+#Linear Model
+lm_plot_prop <- lm(prop_est~volume_pg+branch, data=cafi_coral) 
 
+#Check normality, homoscedasticity, linearity
 par(mfrow=c(2,2))
 plot(lm_plot_prop)
 par(mfrow=c(1,1))
@@ -517,15 +527,6 @@ ggsave("fig1.pdf", plot = fig1, path="figs", width=7, height=4)
 ```
 
 ```{r}
-#Create table with the linear model parameters
-#pl <- c(
-  #'(Intercept)' = "Intercept",
-  #volume_pg = "Software V")
-#tab_model(lm_plot_est,
-          #pred.labels = pl,
-          #digits=6,
-          #dv.labels = "Overestim. difference")
-
 #Create table with the linear model parameters
 pl <- c(
   '(Intercept)' = "Intercept",
@@ -548,7 +549,7 @@ Measuring the volume of an elipsoid overestimates actual coral volume approximat
 
 The below graphs compare the sqrt and log transformed software estimated volume to the same coral's sqrt and log transformed elipsoid volume. A one to one line was fit to show how differences in measuremets vary with increasing coral size.
 
-```{r, message=FALSE, include=FALSE}
+```{r, message=FALSE, include=TRUE}
 #Sqrt volume
 #summary(lm(formula = sqrt_volume_field ~ sqrt_volume_pg, data = cafi_coral))
 sqrt_volume <- ggplot(cafi_coral, aes(x=sqrt_volume_pg, y=sqrt_volume_field))+ 
@@ -574,7 +575,7 @@ annotate_figure(fig4,
                 fig.lab = "Figure 4", fig.lab.face = "bold")  
 ```
 
-The below graphs represent how invertebrate abundance relates to both volume measurements. We will test how well our software estimated method of calculating volume and interstitial space relates to invertebrate counts. We will first assess $p<0.05$ to test if the linear regression slope was significantly different from zero. Correlation of dependent and independent variables $R^2$ was also included in the tables.
+The below graphs represent how invertebrate abundance and richness relates to both volume measurements. We will test how well our software estimated method of calculating volume and interstitial space relates to invertebrate counts. We will first assess $p<0.05$ to test if the linear regression slope was significantly different from zero. Correlation of dependent and independent variables $R^2$ was also included in the tables.
 
 ```{r, include=TRUE, include=FALSE}
 #Plot invert abundance to elipsoid volume
@@ -584,30 +585,12 @@ invert_field <- ggplot(cafi_coral, aes(x=volume_field, y=num_cafi))+
   theme_classic()+
   labs(y="invert abundance", x= expression(paste("elipsoid V cm"^{3})))
 
-#Check qqplots for normality and run Shapiro Wilk on residuals
+#Check qqplots for normality 
 lm_invert_field <- lm(num_cafi~volume_field, data=cafi_coral)
 par(mfrow=c(2,2))
 plot(lm_invert_field)
 par(mfrow=c(1,1))
-
-res_invert_field=lm_invert_field$residuals
-shapiro.test(res_invert_field)
-
-invert_field
 ```
-
-With a $p=0.131$ we fail to reject the null hypothesis that the residuals are normally distributed. Even though the data is normally distributed, linearity and homoescedascity assumptions are not met. We will try a Box-Cox transformation.
-
-```{r, include=FALSE}
-bc1 = boxcox(lm_invert_field)
-best.lam1 = bc1$x[which(bc1$y==max(bc1$y))]
-fullmodel.inv1 = lm((num_cafi)^0.14 ~ volume_field, data=cafi_coral)
-
-par(mfrow=c(2,2))
-plot(fullmodel.inv1)
-par(mfrow=c(1,1))
-```
-Linearity and homoscedacity are not met using this transformation suggesting that a stronger log transformation is required.
 
 ```{r, include=FALSE}
 #Plot invert abundance to software estimated volume
@@ -617,135 +600,41 @@ invert_pg <- ggplot(cafi_coral, aes(x=volume_pg, y=num_cafi))+
   theme_classic()+
   labs(y="invert abundance", x= expression(paste("software V cm"^{3})))
 
-#Check qqplots for normality and run Shapiro Wilk on residuals
+#Check qqplots for normality 
 lm_invert_pg <- lm(num_cafi~volume_pg, data=cafi_coral)
 par(mfrow=c(2,2))
 plot(lm_invert_pg)
 par(mfrow=c(1,1))
-
-res_invert_pg=lm_invert_pg$residuals
-shapiro.test(res_invert_pg)
 ```
-
-With a $p-value=0.5821$ we fail to reject the null hypothesis that the residuals of our non-transformed data are normally distributed. Linearity and homoescedascity assumptions are not met. We will still try a Box-Cox transformation.
 
 ```{r, include=FALSE}
-bc2=boxcox(lm_invert_pg)
-best.lam2=bc2$x[which(bc2$y==max(bc2$y))]
-fullmodel.inv2 = lm((num_cafi)^0.22 ~ volume_pg, data=cafi_coral)
-
-par(mfrow=c(2,2))
-plot(fullmodel.inv2)
-par(mfrow=c(1,1))
-```
-
-After our transformation is applied, linearity, homoscedacity and normality assumptions are met. 
-
-```{r, message=FALSE, include=FALSE}
-fig5 <- ggarrange(invert_field, invert_pg, #sqrt_invert_field, sqrt_invert_pg,
-          ncol = 2, nrow = 1)
-
-annotate_figure(fig5,
-                top = text_grob("Invert abundance and volume", color = "black", face = "bold", size = 14),
-                fig.lab = "Figure 5", fig.lab.face = "bold")  
-
-#HTML table from regression results
-pl <- c(
-  '(Intercept)' = "Intercept",
-  volume_field = "elipsoid volume")
-
-tab_model(lm_invert_field,
-          pred.labels = pl,
-          dv.labels = "Invertebrate abundance",
-          show.se = TRUE)
-
-#HTML table from regression results
-pl <- c(
-  '(Intercept)' = "Intercept",
-  volume_field = "Elispoid V"
-)
-tab_model(fullmodel.inv1,
-          pred.labels = pl,
-          dv.labels = "Box-Cox invert abundance")
-
-#HTML table from regression results
-pl <- c(
-  '(Intercept)' = "Intercept",
-  volume_pg = "software est. volume")
-
-tab_model(lm_invert_pg,
-          pred.labels = pl,
-          dv.labels = "Invert abundance")
-
-#HTML table from regression results
-pl <- c(
-  '(Intercept)' = "Intercept",
-  volume_pg = "Software est. V"
-)
-tab_model(fullmodel.inv2,
-          pred.labels = pl,
-          dv.labels = "Box-Cox invert abundance")
-```
-
-Based on the above results from the table, we can explain 13.7% more variance in the non-transformed data based on the $R^2$ values. 
-
-Based on the above results from the table, we can explain 10.4% more variance in the sqrt transformed data based on the $R^2$ values. 
-
-More variance could be explained for the non-transformed data. Although the residuals were normal for both the elipsoid and software estimated volumes, the linearity and homoscedascity assumptions were not met. 
-
-
-The below graphs represent how invertebrate species richness relates to both volume measurements. We will test how well our software estimated method of calculating volume and interstitial space relates to species richness. We will first assess $p<0.05$ to test if the linear regression slope was significantly different from zero. Correlation of dependent and independent variables $R^2$ was also included in the tables.
-
-```{r, include=TRUE}
+#Plot invert richness to software estimated volume
 richness_field <- ggplot(cafi_coral, aes(x=volume_field, y=cafi_richness))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE)+
   theme_classic()+
   labs(y="invert richness", x= expression(paste("elipsoid V cm"^{3})))
 
+#Check qqplots for normality 
 lm_richness_field <- lm(cafi_richness~volume_field, data=cafi_coral)
 par(mfrow=c(2,2))
 plot(lm_richness_field)
 par(mfrow=c(1,1))
-
-#log_richness_field <- ggplot(cafi_coral, aes(x=log_volume_field, y=log_cafi_richness))+
-  #geom_point()+
-  #geom_smooth(method = lm, se=TRUE)+
-  #theme_classic()+
-  #facet_wrap(~branch)+
-  #labs(y="log invert. richness", x= expression(paste("log elipsoid V cm"^{3})))
-
-#lm_log_richness_field <- lm(log_cafi_richness~log_volume_field, data=cafi_coral)
-#par(mfrow=c(2,2))
-#plot(lm_log_richness_field)
-#par(mfrow=c(1,1))
 ```
 
-```{r, include=TRUE}
+```{r, include=FALSE}
+#Plot invert richness to software estimated volume
 richness_pg <- ggplot(cafi_coral, aes(x=volume_pg, y=cafi_richness))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE)+
   theme_classic()+
   labs(y="invert richness", x= expression(paste("software V cm"^{3})))
 
+#Check qqplots for normality
 lm_richness_pg <- lm(cafi_richness~volume_pg, data=cafi_coral)
 par(mfrow=c(2,2))
 plot(lm_richness_pg)
 par(mfrow=c(1,1))
-
-#Create graphs of log transformed invertebrate richness
-#log_richness_pg <- ggplot(cafi_coral, aes(x=log_volume_pg, y=log_cafi_richness))+
-  #geom_point()+
-  #geom_smooth(method = lm, se=TRUE)+
-  #theme_classic()+
-  #facet_wrap(~branch)+
-  #labs(y="log invert. richness", x= expression(paste("log software est. V cm"^{3})))
-
-#Residuals for log transformed data
-#lm_log_richness_pg <- lm(log_cafi_richness~log_volume_pg, data=cafi_coral)
-#par(mfrow=c(2,2))
-#plot(lm_log_richness_pg)
-#par(mfrow=c(1,1))
 ```
 
 ```{r, message=FALSE, include=TRUE}
@@ -791,7 +680,7 @@ tab_model(lm_richness_field,lm_richness_pg,
           dv.labels = c("Field volume vs. richness","Software volume vs. richness"))
 ```
 
-When comparing elipsoid volume to software estimated volume for invertebrate richness, we see significant p-values for both as represented in the above tables. Software estimated volume measurements and invert. richness show a lower p value indicating a greater slope from zero as well as having a higher correlation $R^2$ value. When data was log transformed, there was little to no difference in p-values or correlation. All slopes are less than zero suggesting a logistic growth model fit for invert abundance with increasing volume. When comparing the slopes for software volume $b=5.051e-4$ and manual volume $b=1.862e-4$, we see that software volume shows a more linear fit. 
+When comparing elipsoid volume to software estimated volume for invertebrate richness, we see significant p-values for both as represented in the above tables. Software estimated volume measurements and invert. richness show a lower p-value indicating a greater slope from zero as well as having a higher correlation $R^2$ value. 
 
 
 #### Graphically analyze software estimated space and avg. branch distance
@@ -1051,10 +940,13 @@ wide <- subset(cafi_coral, branch == "wide")
 
 t.test(tight$log_num_cafi, wide$log_num_cafi, var.equal = TRUE)
 ```
+
 With a $p>0.05$ we fail to reject the null hypothesis that the difference between the means of the log transformed invert counts are different from zero. 
 
 
+####Compare other photogrametry morphological measurements to invert abundance
 ```{r, message=FALSE, include=TRUE}
+#Volume
 plot1 <- ggplot(cafi_coral, aes(x=volume_pg, y=num_cafi))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE)+
@@ -1062,16 +954,10 @@ plot1 <- ggplot(cafi_coral, aes(x=volume_pg, y=num_cafi))+
   theme(axis.title.y=element_blank(),
         legend.position="none")+
   labs(x=expression(paste("Volume cm"^{3})))
+```
 
-
-#plot2 <- ggplot(cafi_coral, aes(x=volume_field, y=num_cafi))+ 
-  #geom_point()+
-  #geom_smooth(method=lm, se=TRUE)+
-  #theme_classic()+
-  #theme(axis.title.y=element_blank(),
-        #legend.position="none")+
-  #labs(x=expression(paste("Log elipsoid V cm"^{3})))
-
+```{r}
+#Sphericity
 plot2 <- ggplot(cafi_coral, aes(x=sphericity, y=num_cafi))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE)+
@@ -1081,7 +967,10 @@ plot2 <- ggplot(cafi_coral, aes(x=sphericity, y=num_cafi))+
   labs(x="Sphericity")
 
 lm_sphericity <- lm(num_cafi~sphericity, data = cafi_coral)
+```
 
+```{r}
+#Packing
 plot3 <- ggplot(cafi_coral, aes(x=packing, y=num_cafi))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE)+
@@ -1091,7 +980,10 @@ plot3 <- ggplot(cafi_coral, aes(x=packing, y=num_cafi))+
   labs(x="Packing")
 
 lm_packing <- lm(num_cafi~packing, data = cafi_coral)
+```
 
+```{r}
+#Height
 plot4 <- ggplot(cafi_coral, aes(x=height_pg, y=num_cafi))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE)+
@@ -1101,7 +993,10 @@ plot4 <- ggplot(cafi_coral, aes(x=height_pg, y=num_cafi))+
   labs(x="Height")
 
 lm_height <- lm(num_cafi~height_pg, data = cafi_coral)
+```
 
+```{r}
+#Length
 plot5 <- ggplot(cafi_coral, aes(x=length_pg, y=num_cafi))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE)+
@@ -1111,7 +1006,10 @@ plot5 <- ggplot(cafi_coral, aes(x=length_pg, y=num_cafi))+
   labs(x="Length")
 
 lm_length <- lm(num_cafi~length_pg, data = cafi_coral)
+```
 
+```{r}
+#Width
 plot6 <- ggplot(cafi_coral, aes(x=width_pg, y=num_cafi))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE)+
@@ -1121,7 +1019,10 @@ plot6 <- ggplot(cafi_coral, aes(x=width_pg, y=num_cafi))+
   labs(x="Width")
 
 lm_width <- lm(num_cafi~width_pg, data = cafi_coral)
+```
 
+```{r}
+#Figure 3
 fig3 <- ggarrange(plot1,plot2,plot3,plot4,plot5,plot6,
                      ncol = 3, nrow=2)
   
@@ -1131,6 +1032,11 @@ annotate_figure(fig3,
                                    rot = 90, face = "bold", size = 12),
                 fig.lab = "Figure 3", fig.lab.face = "bold") 
 
+ggsave("fig3.pdf", plot = fig3, path="figs", width=6, height=4)
+```
+
+```{r}
+#Data tables for volume, sphericity, packing
 pl7 <- c('(Intercept)' = "Intercept",
   volume_pg = "Software Volume")
 
@@ -1147,7 +1053,10 @@ tab_model(lm_invert_pg,lm_sphericity, lm_packing,
           string.p = "P-Value",
           digits=5,
           dv.labels = c("Abundance vs. Software Volume","Abundance vs. Sphericity","Abundance vs. Packing"))
+```
 
+```{r}
+#Data tables for height, length, width
 pl10 <- c('(Intercept)' = "Intercept",
   height_pg = "Height")
 
@@ -1168,7 +1077,10 @@ tab_model(lm_height,lm_length, lm_width,
 ggsave("fig3.pdf", plot = fig3, path="figs", width=6, height=4)
 ```
 
+
+####Compare other photogrametry morphological measurements to invert richness
 ```{r, message=FALSE, include=TRUE}
+#Volume
 plot7 <- ggplot(cafi_coral, aes(x=volume_pg, y=cafi_richness))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE)+
@@ -1176,15 +1088,10 @@ plot7 <- ggplot(cafi_coral, aes(x=volume_pg, y=cafi_richness))+
   theme(axis.title.y=element_blank(),
         legend.position="none")+
   labs(x=expression(paste("Volume cm"^{3})))
+```
 
-#plot2 <- ggplot(cafi_coral, aes(x=volume_field, y=num_cafi))+ 
-  #geom_point()+
-  #geom_smooth(method=lm, se=TRUE)+
-  #theme_classic()+
-  #theme(axis.title.y=element_blank(),
-        #legend.position="none")+
-  #labs(x=expression(paste("Log elipsoid V cm"^{3})))
-
+```{r}
+#Sphericity
 plot8 <- ggplot(cafi_coral, aes(x=sphericity, y=cafi_richness))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE)+
@@ -1194,7 +1101,10 @@ plot8 <- ggplot(cafi_coral, aes(x=sphericity, y=cafi_richness))+
   labs(x="Sphericity")
 
 lm_sph_rich <- lm(cafi_richness~sphericity, data=cafi_coral)
+```
 
+```{r}
+#Packing
 plot9 <- ggplot(cafi_coral, aes(x=packing, y=cafi_richness))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE)+
@@ -1204,7 +1114,10 @@ plot9 <- ggplot(cafi_coral, aes(x=packing, y=cafi_richness))+
   labs(x="Packing")
 
 lm_pack_rich <- lm(cafi_richness~packing, data=cafi_coral)
+```
 
+```{r}
+#Height
 plot10 <- ggplot(cafi_coral, aes(x=height_pg, y=cafi_richness))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE)+
@@ -1214,7 +1127,10 @@ plot10 <- ggplot(cafi_coral, aes(x=height_pg, y=cafi_richness))+
   labs(x="Height")
 
 lm_height_rich <- lm(cafi_richness~height_pg, data=cafi_coral)
+```
 
+```{r}
+#Length
 plot11 <- ggplot(cafi_coral, aes(x=length_pg, y=cafi_richness))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE)+
@@ -1224,7 +1140,10 @@ plot11 <- ggplot(cafi_coral, aes(x=length_pg, y=cafi_richness))+
   labs(x="Length")
 
 lm_length_rich <- lm(cafi_richness~length_pg, data=cafi_coral)
+```
 
+```{r}
+#Width
 plot12 <- ggplot(cafi_coral, aes(x=width_pg, y=cafi_richness))+ 
   geom_point()+
   geom_smooth(method=lm, se=TRUE)+
@@ -1234,7 +1153,10 @@ plot12 <- ggplot(cafi_coral, aes(x=width_pg, y=cafi_richness))+
   labs(x="Width")
 
 lm_width_rich <- lm(cafi_richness~width_pg, data=cafi_coral)
+```
 
+```{r}
+#Figure 4
 fig4 <- ggarrange(plot7,plot8,plot9,plot10,plot11,plot12,
                      ncol = 3, nrow=2)
   
@@ -1244,6 +1166,11 @@ annotate_figure(fig4,
                                    rot = 90, face = "bold", size = 12),
                 fig.lab = "Figure 4", fig.lab.face = "bold")
 
+ggsave("fig4.pdf", plot = fig4, path="figs", width=6, height=4)
+```
+
+```{r}
+#Data tables for volume, sphericity, packing
 pl7 <- c('(Intercept)' = "Intercept",
   volume_pg = "Software Volume")
 
@@ -1260,7 +1187,10 @@ tab_model(lm_richness_pg,lm_sphericity, lm_packing,
           string.p = "P-Value",
           digits=5,
           dv.labels = c("Richness vs. Software Volume","Richness vs. Sphericity","Richness vs. Packing"))
+```
 
+```{r}
+#Data tables for height, length, width
 pl10 <- c('(Intercept)' = "Intercept",
   height_pg = "Height")
 
@@ -1277,117 +1207,12 @@ tab_model(lm_height_rich,lm_length_rich, lm_width_rich,
           string.p = "P-Value",
           digits=5,
           dv.labels = c("Richness vs. Height","Richness vs. Length","Richness vs. Width"))
-
-ggsave("fig4.pdf", plot = fig4, path="figs", width=6, height=4)
-```
-
-```{r, include=FALSE}
-#Linear model for log sphericity and invert abundance
-lm_sphericity <- lm(log_num_cafi~log_sphericity, data=cafi_coral)
-par(mfrow=c(2,2))
-plot(lm_sphericity)
-par(mfrow=c(1,1))
-
-#HTML table from regression results
-pl <- c(
-  '(Intercept)' = "Intercept",
-  log_sphericity = "Log sphericity"
-)
-tab_model(lm_sphericity,
-          pred.labels = pl,
-          dv.labels = "Invertebrate abundance")
-
-#Linear model for packing and invert abundance
-lm_packing <- lm(log_num_cafi~packing, data=cafi_coral)
-par(mfrow=c(2,2))
-plot(lm_packing)
-par(mfrow=c(1,1))
-
-#HTML table from regression results
-pl <- c(
-  '(Intercept)' = "Intercept",
-   packing = "Packing"
-)
-tab_model(lm_packing,
-          pred.labels = pl,
-          dv.labels = "Invertebrate abundance")
-
-#Linear model for convexity and invert abundance
-lm_convexity <- lm(log_num_cafi~convexity, data=cafi_coral)
-par(mfrow=c(2,2))
-plot(lm_convexity)
-par(mfrow=c(1,1))
-
-#HTML table from regression results
-pl <- c(
-  '(Intercept)' = "Intercept",
-   convexity = "Convexity"
-)
-tab_model(lm_convexity,
-          pred.labels = pl,
-          dv.labels = "Invertebrate abundance")
-```
-
-Log transformation appears normal. Log transformed volume, surface area, interstitial space, and packing were morphological measurements that had a positive correlation to number of cafi. Log transformed sphericity has a negative correlation to cafi. Because our data does not contain any 0 counts for invertebrate (meaning every coral contained an invertebrate population) we applied a log transformation to our count data.
-
-Linear models will be fit to all corals as well as subset to tight and wide branching morphotypes.
-
-VIF>10 will be removed from the dataset 
-
-```{r, include=FALSE}
-lm1 <- lm(log_num_cafi~log_volume_pg+log_sphericity+packing, data=log_cafi_coral)
-vif(lm1) 
-
-lm_tight <- lm(log_num_cafi~log_volume_pg+packing, data=log_tight)
-vif(lm_tight)
-
-lm_wide <- lm(log_num_cafi~log_volume_pg+log_sphericity+packing, data=log_wide)
-vif(lm_wide)
-```
-
-```{r, include=FALSE}
-res1=lm1$residuals
-
-#Test normality assumption on residuals
-par(mfrow=c(2,2))
-plot(lm1)
-par(mfrow=c(1,1))
-
-hist(res1)
-shapiro.test(res1)
-
-#Data is FINALY! normal
-```
-
-We fail to reject the null hypothesis that our residuals are normally distributed. 
-
-A step AIC will determine a parsimonious model
-
-```{r, include=FALSE}
-fullmodel <- lm(log_num_cafi~log_volume_pg+log_sphericity+packing, data=log_cafi_coral)
-nullmodel <- lm(log_num_cafi~1, data=log_cafi_coral)
-
-stepAIC(fullmodel, scope = c(upper = fullmodel, lower = nullmodel), direction = "both")
-```
-
-```{r, include=FALSE}
-fullmodel_tight <- lm(log_num_cafi~log_volume_pg+log_sphericity+packing, data=log_tight)
-nullmodel_tight <- lm(log_num_cafi~1, data=log_tight)
-
-stepAIC(fullmodel_tight, scope = c(upper = fullmodel_tight, lower = nullmodel_tight), direction = "both")
-```
-
-```{r, include=FALSE}
-fullmodel_wide <- lm(log_num_cafi~log_volume_pg+log_sphericity+packing, data=log_wide)
-nullmodel_wide <- lm(log_num_cafi~1, data=log_wide)
-
-stepAIC(fullmodel_wide, scope = c(upper = fullmodel_wide, lower = nullmodel_wide), direction = "both")
 ```
 
 
 #### Poisson and Negative Binomial GLM
 
-We will now fit a poisson general linear model to our invertebrate count and richness data 
+We will now fit a poisson general linear model to our invertebrate count data 
 
 ```{r, include=FALSE}
 poiss_field <- glm(num_cafi~volume_field, family=poisson, data=cafi_coral) #Poisson regression for invert count data using elipsoide volume
@@ -1404,7 +1229,10 @@ summary(glm.nb1)
 
 glm.nb2 <- glm.nb(num_cafi~volume_pg, data=cafi_coral) #negative binomial model for software estimated volume and abundance to account for overdispersion
 summary(glm.nb2)
+```
 
+```{r}
+#Data table of results
 pl_nb <- c(
   '(Intercept)' = "Intercept",
   volume_field = "Elipsoid volume")
@@ -1420,11 +1248,16 @@ tab_model(glm.nb1,glm.nb2,
           string.p = "P-Value",
           digits=5,
           dv.labels = c("Negative binomial abundance"))
+```
 
+```{r}
+#Vuongtest for abundance negative binomial models
 library(nonnest2)
 
-vuongtest(glm.nb1,glm.nb2)
+vuongtest(glm.nb1,glm.nb2) #compare negative binomial models
 ```
+
+We will now fit a poisson general linear model to our invertebrate richness data 
 
 ```{r, include=FALSE}
 poiss_field_r <- glm(cafi_richness~volume_field, family=poisson, data=cafi_coral) #Poisson regression for richness using elipsoide volume
@@ -1442,7 +1275,10 @@ summary(glm.nb3)
 
 glm.nb4 <- glm.nb(cafi_richness~volume_pg, data=cafi_coral) #negative binomial model for software estimated volume and richness to account for overdispersion
 summary(glm.nb4)
+```
 
+```{r}
+#Data table of results
 pl3_nb <- c(
   '(Intercept)' = "Intercept",
   volume_field = "Elipsoid volume")
@@ -1458,7 +1294,10 @@ tab_model(glm.nb3,glm.nb4,
           string.p = "P-Value",
           digits=5,
           dv.labels = c("Negative binomial richness"))
+```
 
+```{r}
+#Vuong test for richness negative binomial models
 vuongtest(glm.nb3,glm.nb4)
 ```
 
@@ -1493,7 +1332,7 @@ plot_nb4 <- ggplot(cafi_coral, aes(x=volume_pg, y=cafi_richness))+
   labs(y="Invert. Richness", x= expression(paste("Software Volume cm"^{3})))
 ```
 
-```{r}
+```{r, include=TRUE, message=FALSE}
 #Create fig. 5 and annotate 
 fig5 <- ggarrange(plot_nb1, plot_nb2, plot_nb3, plot_nb4,
           ncol = 2, nrow = 2)
@@ -1505,4 +1344,51 @@ annotate_figure(fig5,
 ggsave("fig5.pdf", plot = fig5, path="figs", width=5, height=4)
 ```
 
-With $p=0.108$ and $p=0.233$, we fail to reject the null hypothesis that the two models comparing elipsoid and software volume are indistinguishable for both abundance and richness using the Vuong test comparing non-nested models. Theoretically, the lower AIC values for software estimated volume estimating log-likelihood as shown in the tables reflect a relatively better quality model to fit the data. 
+```{r}
+#Create data tables from negative binomial results for abundance
+pl_nb <- c(
+  '(Intercept)' = "Intercept",
+  volume_field = "Elipsoid Volume")
+pl2_nb <- c(
+  '(Intercept)' = "Intercept",
+  volume_pg = "Software Volume")
+
+tab_model(glm.nb1,glm.nb2,
+          pred.labels = c(pl_nb,pl2_nb),
+          show.se = TRUE,
+          show.aicc = TRUE,
+          string.ci = "Conf. Int (95%)",
+          string.p = "P-Value",
+          digits=5,
+          dv.labels = c("Negative Binomial Abundance"))
+
+#Create data tables from negative binomial results for richness
+pl3_nb <- c(
+  '(Intercept)' = "Intercept",
+  volume_field = "Elipsoid Volume")
+pl4_nb <- c(
+  '(Intercept)' = "Intercept",
+  volume_pg = "Software Volume")
+
+tab_model(glm.nb3,glm.nb4,
+          pred.labels = c(pl3_nb,pl4_nb),
+          show.se = TRUE,
+          show.aicc = TRUE,
+          string.ci = "Conf. Int (95%)",
+          string.p = "P-Value",
+          digits=5,
+          dv.labels = c("Negative Binomial Richness"))
+
+#Probability that the "ith" model minimizes info loss
+library(AICcmodavg)
+
+aicc_field <- AICc(glm.nb1) #calculate AICc from field and software models
+aicc_pg <- AICc(glm.nb2)
+#AIC_min
+p=exp((aicc_pg-aicc_field)/2)
+p
+```
+
+With $p=0.108$ and $p=0.233$, we fail to reject the null hypothesis that the two models comparing elipsoid and software volume are indistinguishable for both abundance and richness using the Vuong test comparing non-nested models.
+
+Theoretically, the lower AIC values for software estimated volume estimating log-likelihood as shown in the tables reflect a relatively better quality model to fit the data. Because a likelihood ratio test requires a nested model assumption, we used the equation $p=exp^{AIC_{min} - AIC_i/2}$ to calculate the relative likelihood of the two models. Based on our calculation, the invertebrate model with elipsoid volume as the predictor variable was 0.19 times as probable as the model with software volume to minimize information loss. 
