@@ -11,13 +11,13 @@ This repo is maintained by Stier Lab undergraduate student Journ Galvan (GitHub:
 */photogrammetry_data* Folder containing coral morphometric data from photogrammetry and field
 file name | description 
 ---|-----------
-branchwidth_data.csv | Includes average branch width of coral from five randomly selected branch distances
-photogrammetry_data.csv | Includes data and morphology measurements of 3D coral models
-field_experiment_colony_measurements_moorea_summer2019.csv | Data collected *in situ* including coral elipsoid volume
+branchwidth_data.csv | Includes average branch width of coral from five randomly selected interbranching distances
+photogrammetry_data.csv | Includes data and morphology measurements of 3D coral models. Measurements include volume, surface area, interstitial space, convexity, sphericity, and packing
+field_experiment_colony_measurements_moorea_summer2019.csv | Data collected *in situ* including coral elipsoid volume, height, length, and width
 
 # CAFI Data
 */cafi_data* Folder containing coral associated fish and invertebrate data
-
-
 file name | description 
 ---|-----------
+prelim_cafi_counts_moorea_summer2019.csv | Intitial counts of invertebrates and vertebrates with species code
+revised_cafi_data_moorea_summer2019_11_27.csv | Invertebrate and vertebrate data collected on *Pocillopora* host corals from summer 2019. Identified family, genus and species level. Data frame updated to include recently identified organisms. 
