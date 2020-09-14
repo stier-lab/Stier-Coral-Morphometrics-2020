@@ -523,7 +523,7 @@ annotate_figure(fig1,
                 top = text_grob("Actual vs. proportional estimates", color = "black", face = "bold", size = 14),
                 fig.lab = "Figure 1", fig.lab.face = "bold")  
 
-ggsave("fig1.pdf", plot = fig1, path="figs", width=7, height=4)
+ggsave("fig1.pdf", plot = fig1, path="figures", width=7, height=4)
 ```
 
 ```{r}
@@ -645,7 +645,7 @@ annotate_figure(fig2,
                 top = text_grob("Invert Abundance and Richness", color = "black", face = "bold", size = 14),
                 fig.lab = "Figure 2", fig.lab.face = "bold") 
 
-ggsave("fig2.pdf", plot = fig2, path="figs", width=5, height=4)
+ggsave("fig2.pdf", plot = fig2, path="figures", width=5, height=4)
 
 #HTML table comparing volume methods and abundance
 pl3 <- c(
@@ -1032,7 +1032,7 @@ annotate_figure(fig3,
                                    rot = 90, face = "bold", size = 12),
                 fig.lab = "Figure 3", fig.lab.face = "bold") 
 
-ggsave("fig3.pdf", plot = fig3, path="figs", width=6, height=4)
+ggsave("fig3.pdf", plot = fig3, path="figures", width=6, height=4)
 ```
 
 ```{r}
@@ -1074,7 +1074,7 @@ tab_model(lm_height,lm_length, lm_width,
           digits=5,
           dv.labels = c("Abundance vs. Height","Abundance vs. Length","Abundance vs. Width"))
 
-ggsave("fig3.pdf", plot = fig3, path="figs", width=6, height=4)
+ggsave("fig3.pdf", plot = fig3, path="figures", width=6, height=4)
 ```
 
 
@@ -1166,7 +1166,7 @@ annotate_figure(fig4,
                                    rot = 90, face = "bold", size = 12),
                 fig.lab = "Figure 4", fig.lab.face = "bold")
 
-ggsave("fig4.pdf", plot = fig4, path="figs", width=6, height=4)
+ggsave("fig4.pdf", plot = fig4, path="figures", width=6, height=4)
 ```
 
 ```{r}
@@ -1341,7 +1341,7 @@ annotate_figure(fig5,
                 top = text_grob("Negative binomial", color = "black", face = "bold", size = 14),
                 fig.lab = "Figure 5", fig.lab.face = "bold")
 
-ggsave("fig5.pdf", plot = fig5, path="figs", width=5, height=4)
+ggsave("fig5.pdf", plot = fig5, path="figures", width=5, height=4)
 ```
 
 ```{r}

@@ -1,23 +1,38 @@
 # Stier-Coral-Morphometrics-2020
-Coral Morphometrics using metashape
+Coral Morphometrics using Metashape
 
+This project compares traditional field measurements of *Pocillopora* coral heads with 3D models constructed from digital images of the same coral using Agisoft Metashape software. We are interested in (1) creating a workflow utilizing best practices for photo acquistion and photogrammetry models of individual corals (2) compare information gained or lost from photogrammetry vs. in-field manual measurements and (3) the ecological relevance as a predictor for invertebrate communities within the coral. Data was collected in Moorea, French Polynesia on August 2019 for a project funded by the National Science Foundation (NSF).
 
-3D mesh reconstructions of *Pocillopora* coral colonies were developed from digital images using Agisoft Metashape software. Coral volume was calculated using software model estimation and from manual elipsoid volume approximation to (1) determine how the proportion overestimation of elipsoid volume increased or decreased with *wide* or *tight* branching corals and (2) fit general linear models using the invertebrate data we collected to both elipsoid and software estimated volume predictor variables to determine if software volume provided a better fit to the data. 
+![Metashape Model](https://drive.google.com/drive/u/1/folders/1MaTedl9H6lcqhuW6W1WjWYwqVjplf9Ox)
 
-This repo is maintained by Stier Lab undergraduate student Journ Galvan (GitHub: [@journgalvan](https://github.com/journgalvan)) at the University of California, Santa Barbara in the Department of Ecology, Evolution, & Marine Biology.
+*Note*: Project models and photos are stored in a GoogleDrive folder and are available upon request.
+
+This repo is maintained by Stier Lab Lead Technician Joseph Curtis (GitHub: [@jlscurtis512](https://github.com/jlscurtis512) and undergraduate student Journ Galvan (GitHub: [@journgalvan](https://github.com/journgalvan)) at the University of California, Santa Barbara in the Department of Ecology, Evolution, & Marine Biology.
 
 
 # Morphometric Data
-*/photogrammetry_data* Folder containing coral morphometric data from photogrammetry and field
+*/morphometric_data* Folder containing coral photogrammetry and field data
 file name | description 
 ---|-----------
-branchwidth_data.csv | Includes average branch width of coral from five randomly selected interbranching distances
-photogrammetry_data.csv | Includes data and morphology measurements of 3D coral models. Measurements include volume, surface area, interstitial space, convexity, sphericity, and packing
-field_experiment_colony_measurements_moorea_summer2019.csv | Data collected *in situ* including coral elipsoid volume, height, length, and width
+branchwidth_data.csv | Measurements of distances between coral branches including the average distance for each coral
+photogrammetry_data_v3_2020_9_10.csv | Measurements estimated by the photogrammetry software
+field_experiment_colony_measurements_moorea_summer2019.csv | Measurements taken in the field
 
 # CAFI Data
 */cafi_data* Folder containing coral associated fish and invertebrate data
 file name | description 
 ---|-----------
-prelim_cafi_counts_moorea_summer2019.csv | Intitial counts of invertebrates and vertebrates with species code
-revised_cafi_data_moorea_summer2019_11_27.csv | Invertebrate and vertebrate data collected on *Pocillopora* host corals from summer 2019. Identified family, genus and species level. Data frame updated to include recently identified organisms. 
+cafi_data_w_taxonomy_summer2019_2020_5_21.csv | contains most up to date and thorough taxonomy data
+/old | subfolder with original invertebrate data sheets
+/prelim_cafi_counts_moorea_summer2019.csv | Intitial counts of invertebrates 
+/revised_cafi_data_moorea_summer2019_11_27.csv | Updated species level data on invertebrate communities
+
+# Code
+*/code* 
+file name | description 
+---|-----------
+photogrammetry_CAFI_outline_JC_9_8_2020.Rmd | Synthesis and cleaning of data sets as well as code for figures and stats analysis comparing photogrammetry and traditional measurements. 
+photogrammetry_CAFI_outline_invertonly_JC_9_8_2020.Rmd | Contains annotated suggestions and edits of the original code
+/figures | Subfolder with code containing preliminary figures comparing software and manual measurements and how they relate to invertebrate communities
+
+
