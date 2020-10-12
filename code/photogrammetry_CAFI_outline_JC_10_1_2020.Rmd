@@ -40,6 +40,7 @@ library(cowplot)
 library(ggpmisc)
 library(ggpubr)
 library(ggalt)
+library(ggExtra)
 
 conflict_prefer("rename","dplyr")
 conflict_prefer("filter", "dplyr")
@@ -383,45 +384,6 @@ december_manual <- december_manual %>% filter(coral_id %in% december_photo$coral
 
 ``` {r growth_boxplots, include = TRUE, echo = FALSE, message = FALSE}
 
-manual_growth_box <- ggplot(december_manual, aes(x = "Ellipse", y = vol_growth_man)) +
-  geom_boxplot(width = 0.5, outlier.shape = NA) + 
-  geom_jitter(width = 0.05, size = 2, alpha = 0.5, color = "coral") +
-  theme_classic() +
-  xlab("") +
-  ylab(expression(paste("Growth (cm"^{3},")"))) +
-  ylim(min(december_manual$vol_growth_man) - 100, max(december_manual$vol_growth_man) +100) +
-  theme(axis.text.x = element_text(size = 15, face = "bold"), axis.ticks.x = element_blank(), axis.line.x = element_blank())
-
-photo_growth_box <- ggplot(december_photo, aes(x = "Photo", y = vol_growth_pg)) +
-  geom_boxplot(width = 0.5, outlier.shape = NA) + 
-  geom_jitter(width = 0.05, size = 2, alpha = 0.5, color = "coral") +
-  theme_classic() +
-  labs(x = "", y = "") +
-  ylim(min(december_manual$vol_growth_man) - 100, max(december_manual$vol_growth_man) +100) +
-  theme(axis.text.x = element_text(size = 15, face = "bold"), axis.ticks = element_blank(), axis.line = element_blank(),
-        axis.text.y = element_blank())
-
-manual_growth_prop_box <- ggplot(december_manual, aes(x = "Ellipse", y = prop_growth_man)) +
-  geom_boxplot(width = 0.5, outlier.shape = NA) + 
-  geom_jitter(width = 0.05, size = 2, alpha = 0.5, color = "coral") +
-  theme_classic() +
-  xlab("") +
-  ylab("% Growth") +
-  ylim(min(december_manual$prop_growth_man) - 100, max(december_manual$prop_growth_man) +100) +
-  theme(axis.text.x = element_text(size = 15, face = "bold"), axis.ticks.x = element_blank(), axis.line.x = element_blank())
-
-photo_growth_prop_box <- ggplot(december_photo, aes(x = "Photo", y = prop_growth_pg)) +
-  geom_boxplot(width = 0.5, outlier.shape = NA) + 
-  geom_jitter(width = 0.05, size = 2, alpha = 0.5, color = "coral") +
-  theme_classic() +
-  labs(x = "", y = "") +
-  ylim(min(december_manual$prop_growth_man) - 100, max(december_manual$prop_growth_man) +100) +
-  theme(axis.text.x = element_text(size = 15, face = "bold"), axis.ticks = element_blank(), axis.line = element_blank(),
-        axis.text.y = element_blank())
-
-growth_comb_box <- plot_grid(manual_growth_box, photo_growth_box, align = 'vh', labels = NA)
-prop_growth_comb_box <- plot_grid(manual_growth_prop_box, photo_growth_prop_box, align = 'vh', labels = NA)
-
 aug_and_dec <- left_join(december_photo, december_manual, by = "coral_id")
 
 dumbbell_volume <- ggplot(aug_and_dec, aes(x = vol_growth_man, xend = vol_growth_pg, y = coral_id)) +
@@ -434,7 +396,8 @@ dumbbell_volume <- ggplot(aug_and_dec, aes(x = vol_growth_man, xend = vol_growth
                       size_x=3.5, 
                       size_xend = 3.5,
                       colour_x="#edae52", 
-                      colour_xend = "#9fb059")+
+                      colour_xend = "#9fb059") +
+  geom_vline(xintercept = 0, linetype = "dashed") +
         labs(x="Growth (Volume)", y="Coral ID") +
   theme_classic()
 
@@ -450,6 +413,7 @@ dumbbell_prop <- ggplot(aug_and_dec, aes(x = prop_growth_man, xend = prop_growth
                       colour_x="#edae52", 
                       colour_xend = "#9fb059")+
         labs(x="% Growth (Volume)", y="Coral ID") + 
+   geom_vline(xintercept = 0, linetype = "dashed") +
   theme_classic() +
   theme(axis.ticks.y = element_blank(), axis.title.y = element_blank(),
         axis.text.y = element_blank())
@@ -462,6 +426,126 @@ growth_plot_legend <- get_legend(ggplot(coral_dim, aes(x = length_pg, y = volume
 
 plot_grid(dumbbell_volume, dumbbell_prop, growth_plot_legend, 
           ncol = 3, nrow = 1, align = 'vh', rel_widths = c(.65,.55, .25))
+
+```
+
+``` {r growth_fig_followup_prep, include = FALSE, echo = FALSE}
+
+manual_dec_trim <- december_manual %>% select(coral_id, volume = volume_est_dec, growth = vol_growth_man, prop_growth = prop_growth_man) %>% mutate(method = "Ellipse")
+
+photo_dec_trim <- december_photo %>% select(coral_id, volume = volume_pg, growth = vol_growth_pg, prop_growth = prop_growth_pg) %>% mutate(method = "Photo")
+
+december_stacked <- rbind(manual_dec_trim,photo_dec_trim)
+december_summary_stats <- december_stacked %>% group_by(method) %>% summarize(
+  mean_growth = mean(growth), mean_prop_growth = mean(prop_growth),
+  se_vol = sd(growth)/sqrt(n()), se_prop = sd(prop_growth)/sqrt(n())
+)
+
+growth_mean_plot <- 
+  ggplot(december_summary_stats, aes(x = method, y = mean_growth, color = method)) +
+    geom_jitter(data = december_stacked, aes(x = method, y = growth),
+                width = 0.05, size = 2, alpha = 0.5, color = "gray50") +
+    geom_errorbar(aes(ymin = mean_growth - se_vol,
+                      ymax = mean_growth + se_vol), width = 0.5, size = 1.2, color = "black") +
+    geom_point(size = 4.5, color = "black") +
+    geom_point(size = 3) +
+    scale_color_manual(labels = c("Ellipse","Photo Model"), values = c("#edae52", "#9fb059")) +
+    geom_hline(aes(yintercept = 0), linetype = "dashed") +
+    labs(x = "", y = expression(paste("Growth (cm"^{3},")"))) +
+    scale_x_discrete(expand = c(0,1.5)) +
+    theme_classic() +
+    theme(legend.position = "none", aspect.ratio = (2))
+
+prop_mean_plot <- ggplot(december_summary_stats, aes(x = method, y = mean_prop_growth, 
+                                                         color = method)) +
+    geom_jitter(data = december_stacked, aes(x = method, y = prop_growth),
+                width = 0.05, size = 2, alpha = 0.5, color = "gray50") +
+    geom_errorbar(aes(ymin = mean_prop_growth - se_prop,
+                      ymax = mean_prop_growth + se_prop), width = 0.5, 
+                  size = 1.2, color = "black") +
+    geom_point(size = 4.5, color = "black") +
+    geom_point(size = 3) +
+    scale_color_manual(labels = c("Ellipse","Photo Model"), values = c("#edae52", "#9fb059")) +
+    geom_hline(aes(yintercept = 0), linetype = "dashed") +
+    labs(x = "", y = expression(paste("% Growth"))) +
+    scale_x_discrete(expand = c(0,1.5)) +
+    theme_classic() +
+    theme(legend.position = "none", aspect.ratio = (2))
+
+growth_t_plot_raw <- plot_grid(growth_mean_plot, prop_mean_plot, nrow = 1, align = "vh", labels = "AUTO")
+
+growth_scatter <- ggplot(aug_and_dec, aes(vol_growth_man, vol_growth_pg)) +
+    geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_smooth(method = "lm", color = "lightslategray") +
+   geom_point(size = 3, color = "coral") +
+  labs(x = expression(paste("Manual Ellipse Growth (cm"^{3},")")),
+       y = expression(paste("Photo Model Growth (cm"^{3},")"))) +
+  theme_classic() +
+  theme(panel.border = element_rect(color = "black", fill = NA, size =2))
+
+prop_growth_scatter <- ggplot(aug_and_dec, aes(prop_growth_man, prop_growth_pg)) +
+    geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_smooth(method = "lm", color = "lightslategray") +
+   geom_point(size = 3, color = "coral") +
+  labs(x = "% Ellipse Growth", y = "% Photo Model Growth") +
+  theme_classic() +
+  theme(panel.border = element_rect(color = "black", fill = NA, size =2))
+
+ggMarginal(growth_scatter, type = "density", fill = "coral", color = "lightslategray")
+ggMarginal(prop_growth_scatter, type = "density", fill = "coral", color = "lightslategray")
+
+# growth_vs_volume <- 
+growth_v_vol_man <- ggplot(aug_and_dec, aes(volume_est, vol_growth_man)) +
+  geom_point(size = 3, color = "#edae52") +
+  geom_smooth(method = "lm", color = "lightslategray", formula = "formula1") +
+  labs(x = expression(paste("Initial Ellipse Volume (cm"^{3},")")),
+       y = expression(paste("Growth (cm"^{3},")"))) +
+       stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5) +
+  theme_classic()
+
+growth_v_vol_pg <-ggplot(aug_and_dec, aes(vol_pg_aug, vol_growth_pg)) +
+  geom_point(size = 3, color = "#9fb059") +
+  geom_smooth(method = "lm", color = "lightslategray", formula = "formula1") +
+  labs(x = expression(paste("Initial Skeletal Volume (cm"^{3},")")),
+       y = expression(paste("Growth (cm"^{3},")"))) +
+     stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5) +
+  theme_classic()
+
+prop_v_vol_man <- ggplot(aug_and_dec, aes(volume_est, prop_growth_man)) +
+  geom_point(size = 3, color = "#edae52") +
+  geom_smooth(method = "lm", color = "lightslategray", formula = "formula1") +
+  labs(x = expression(paste("Initial Ellipse Volume (cm"^{3},")")),
+       y = expression(paste("% Growth"))) +
+       stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5) +
+  theme_classic()
+
+prop_v_vol_pg <-ggplot(aug_and_dec, aes(vol_pg_aug, prop_growth_pg)) +
+  geom_point(size = 3, color = "#9fb059") +
+  geom_smooth(method = "lm", color = "lightslategray", formula = "formula1") +
+  labs(x = expression(paste("Initial Skeletal Volume (cm"^{3},")")),
+       y = expression(paste("% Growth"))) +
+     stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5) +
+  theme_classic()
+
+growth_v_vol_raw <- plot_grid(growth_v_vol_man, growth_v_vol_pg, prop_v_vol_man, prop_v_vol_pg,
+          nrow = 2, ncol = 2, align = 'vh', labels = "AUTO")
+
+growth_v_vol_fig <- plot_grid(growth_v_vol_raw, growth_plot_legend, rel_widths = c(6, 1.2),
+                              align = 'v')
+
+growth_v_vol_fig
+# Table describing means
+# paired t-test for growth
 
 ```
 
