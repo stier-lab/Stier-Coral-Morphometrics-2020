@@ -409,7 +409,7 @@ invert_hull <- ggplot(cafi_coral, aes(x=max_hull_volume, y=num_cafi))+
   xlim(c(0,max(coral_dim$max_hull_volume, na.rm = TRUE)+5000)) +
   labs(y="CAFI Abundance", x= expression(paste("Hull Volume (cm"^{3},")")))
 
-#Plot invert richness to software estimated volume
+#Plot invert richness to manual volume
 richness_field <- ggplot(cafi_coral, aes(x=volume_field, y=cafi_richness))+ 
   geom_point()+
   geom_smooth(method=lm)+

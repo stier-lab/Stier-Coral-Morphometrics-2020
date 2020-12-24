@@ -1,0 +1,1270 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+# Title: "Outline for Photogrammetry-CAFI manuscript"
+author: "Joseph Curtis (modifying code by Journ Galvan)"
+date: "9/8/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, message=FALSE, include=FALSE}
+
+rm(list=ls())
+
+# Load libraries
+library(here)
+library(tidyverse)
+library(vegan)
+library(reshape)
+library(ggpubr)
+library(zoo)
+library(sjPlot)
+library(sjmisc)
+library(sjlabelled)
+library(psych)
+library(knitr)
+library(faraway)
+library(car)
+library(MASS)
+library(gridExtra)
+library(grid)
+library(AER)
+library(conflicted)
+library(cowplot)
+library(ggpmisc)
+library(ggpubr)
+library(ggalt)
+library(ggExtra)
+
+conflict_prefer("rename","dplyr")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select","dplyr")
+conflict_prefer("plot_grid","cowplot")
+conflict_prefer("get_legend", "cowplot")
+
+```
+
+```{r load_data, include=FALSE}
+# Load data 
+branch_width <- read.csv(here("morphometric_data","branchwidth_data.csv")) 
+coral_pg <- read.csv(here("morphometric_data","photogrammetry_data_v3_2020_9_10.csv")) 
+coral_field <- read.csv(here("morphometric_data","field_experiment_colony_measurements_moorea_summer2019.csv"))
+updated_cafi <- read.csv(here("cafi_data","cafi_data_w_taxonomy_summer2019_2020_5_21.csv"))
+```
+
+```{r data_cleaning, include=FALSE}
+
+# Data Preparation and Cleaning
+
+# CAFI data - Inverts only
+updated_cafi2 <- updated_cafi %>% filter(str_detect(coral_id, "^FE")) %>%
+  select(master_sort, coral_id, code, type, search_term, lowest_level, phylum, genus, species, general_notes)
+
+# Calculate CAFI richness, abundance, and diversity (shannon weiner) for each coral (inverts)
+
+cafi_summarized2 <- group_by(updated_cafi2, coral_id) %>%
+  summarise(num_cafi = n(), cafi_richness = length(unique(code)), cafi_present = paste(sort(unique(code)), collapse = ";"))
+cafi_summarized2$sw <- updated_cafi2 %>% 
+  count(code, coral_id = coral_id) %>% 
+  spread(code,n) %>% 
+  mutate_all(list(~tidyr::replace_na(.,0))) %>% 
+  select(-coral_id) %>% 
+  diversity(index = "shannon")
+
+# Clean field data
+coral_field2 <- coral_field %>%
+  rename(branch = branch_width) 
+  
+
+# Clean photogrammetry morphometric data
+coral_pg$volume_pg <- as.numeric(as.character(coral_pg$volume_pg)) # Convert factor to numeric
+coral_pg <- coral_pg %>% filter(use == "y") %>%   mutate(volume_pg=volume_pg*10^6, #convert m^3 to cm^3
+         max_hull_volume=max_hull_volume*10^6, #convert m^3 to cm^3
+         max_hull_surface_area=max_hull_surface_area*10^4,#convert m^2 to cm^2
+         surface_area=surface_area*10^4, #convert m^2 to cm^2
+         height_pg=height_pg*100, #convert m to cm
+         length_pg=length_pg*100, #convert m to cm
+         width_pg=width_pg*100) #convert m to cm
+
+# Clean photogrammetry branch width data and take averages of branch distance for each coral
+branch_width$branch_distance_mm <- as.numeric(as.character(branch_width$branch_distance_mm)) # Convert factor to numeric
+branch_w_summarized <- group_by(branch_width, coral_id) %>%
+  summarise(avg_w_cm = mean(branch_distance_mm)/10, #take average branch distance and convert mm to cm
+            measurements = n(), 
+            locations = paste(sort(unique(location)), collapse = ";"))
+
+#Create primary data frame for analysis
+
+coral_dim <- merge(coral_pg, branch_w_summarized, by = "coral_id") %>%
+ merge(coral_field2, by = "coral_id") %>%
+  rename(max_hull_SA = max_hull_surface_area,
+                SA = surface_area)
+
+# Swap length to be the bigger linear dimension, width to be the smaller one
+
+coral_dim <- coral_dim %>% mutate(length_pg_temp = if_else(length_pg > width_pg, length_pg, width_pg),
+                                  width_pg_temp = if_else(length_pg < width_pg, length_pg, width_pg),
+                                  length_field_temp = if_else(length_field > width_field, length_field, width_field),
+                                  width_field_temp = if_else(length_field < width_field, length_field, width_field)) %>% 
+                            select(-length_pg, -width_pg, -length_field, -width_field) %>%
+                            rename(length_pg = length_pg_temp, width_pg = width_pg_temp,
+                                   length_field = length_field_temp, width_field = width_field_temp)
+          
+
+coral_dim$interstitial_space <- coral_dim$max_hull_volume - coral_dim$volume_pg #calculate available space by subtracting software estimated volume from convex hull volume
+
+coral_dim$SAV <- coral_dim$SA / coral_dim$volume_pg #calculate surface area to volume relationship
+
+coral_dim$convexity <- coral_dim$volume_pg / coral_dim$max_hull_volume #calculate proportion occupied, high ratios indicate less free space between branches
+
+coral_dim$packing <- coral_dim$SA / coral_dim$max_hull_SA #how much of an objects surface area is situated internally
+
+coral_dim$sphericity <- ((pi^(1/3))*((6*coral_dim$volume_pg)^(2/3)))/coral_dim$SA #calculate sphericity or how close the object is to a sphere
+
+coral_dim$diff_est <- coral_dim$volume_field-coral_dim$volume_pg #actual overestimation
+
+coral_dim$prop_est <- (coral_dim$volume_field - coral_dim$volume_pg)/coral_dim$volume_pg #proportion overestimated 
+
+coral_dim <- coral_dim %>% select(-"use", -position, -total_photos, -photos_not_aligned, -measurements, -locations) %>% 
+ rename(notes_pg = notes.x, notes_field = notes.y)
+
+# Undid filtering of removal corals only.. may need to reintroduce step at some later point
+
+coral_dim$branch_conv <- ifelse(coral_dim$convexity>=0.5, "tight","wide") #classifies wide and tight branching coral based on convexity
+  
+# Merge coral and CAFI data
+cafi_coral <- left_join(coral_dim, cafi_summarized2, by ="coral_id") %>% filter(cafi == "empty")
+
+#Create trimmed dataset (not sure why this df is necessary.. maybe clear later on?)
+dim_bind <- coral_dim %>% select(coral_id, ends_with("pg"), ends_with("field"))
+
+#Cleanup
+
+remove(branch_w_summarized, cafi_summarized2, branch_width, coral_field, coral_field2, updated_cafi, coral_pg, updated_cafi2)
+```
+# Overview
+
+The purpose of this document is to outline some preliminary results and interpretation of data collected in Moorea, French Polynesia, regarding the relative utility of measuring coral colonies via photogrammetry versus traditional manual measurements.
+
+# Glossary/formulas
+
+$Volume_{photo}$: Volume calculated through photogrammetry of live coral surface (base, epoxy, and background cropped) $(cm^3)$
+
+$Volume_{hull}$: Volume of convex hull, or the greatest possible volume of coral object $(cm^3)$
+
+$SA_{photo}$: Surface Area from photogrammetry models, only includes live coral surface, not underside of base $(cm^2)$
+
+$SA_{hull}$: Surface Area from convex hull, lowest possible surface area of coral $(cm^2)$
+
+**Interstitial space**: $Volume_{hull}$  - $Volume_{photo}$; higher value means more empty space in convex hull volume $(cm^3)$
+
+**SA/V**: $SA_{photo}$/$Volume_{photo}$ (both from photogrammetry); proxy for rugosity, higher values mean more complex coral structure
+
+**Convexity**: $Volume_{photo}$ / $Volume_{hull}$; proportion of convex hull occupied by object, lower values indicate more empty space inside convex hull. In a coral, this could be due to wide branch distance or higher complexity structure (convoluted, deep interstitial spaces) 
+
+*note: We should discuss whether convexity is really the best measurement to try and divide "wide" and "tight" colonies. For instance, a colony with long, skinny branches and deep interstitial spaces could hypothetically have the same convexity as one with fatter, shorter branches with more space inbetween. I think convexity will catch the extreme cases (lowest values for very widely branched colonies, highest values for very tightly branched colonies), but the middle values could be tricky, and show "intermediate branch width for different reasons*
+
+**Packing**: $SA_{photo}$ / $SA_{hull}$; another measurement of rugosity and complexity, higher values suggest more structural complexity
+
+**Sphericity**: ${\pi^{1/3}}*(6*Volume_{photo}^{2/3})/(SA_{photo})$; the degree to which the shape of a coral resembles a sphere - higher value means more spherical. 
+
+*note: A coral could vary on a lot of different axes that decrease sphericity. A more complex, taller, or wider coral could all have similar sphericity values but for completely different reasons. Sphericity calculations based on convex hull rather than coral measurements may be more valuable*
+
+**Branch Width**: Average distance between the vertices of two branches on a coral. In this case, measurements were made at 5 locations per colony using photogrammetry and averaged. Manual measurements of branch distance for these corals would have been possible, but weren't made.
+
+# Introduction Outline
+
+* Measurements of features in marine landscapes, especially the size and distribution of habitat, can be extremely important for accurately predicting ecological phenomena
+
+* Traditionally, these have been made using cheap, readily accessible tools such as observer-based surveys and manual methods. However, newer techniques such as the digital reconstruction of landscape features using photogrammetry have the potential to allow much more detailed analyses of the physical characteristics of various habitats.
+
+* Still, it remains unclear how these improvements in our ability to quantify and describe habitat translate to improved understanding of ecological phenomena that relate to habitat characteristics
+
+* The objective of this manuscript is to compare how manual and photogrammetric measurements of a foundation habitat in a marine landscape, specifically of the morphological characteristics of coral colonies, are differentially able to predict ecological patterns related to habitat characteristics. These data illustrate the new types of information that are yielded by investment in photogrammetry, and whether such insight is likely to improve our ecological understanding of systems.
+
+# Methods Details
+
+* 60 coral colonies were manually measured and photographed in August and December 2019
+
+* 30 of these colonies were sampled to describe their resident biological community of associated invertebrates and fishes (CAFI)
+
+* Manual measurements of corals included: length, width, height, circumference. Volume of a colony can be approximated as an ellipsoid using these measurements. Branch width distance could have been measured, but was not.
+
+* Photogrammetric measurements included: Length, width, height, volume (coral), volume (convex hull), surface area (coral), surface area (convex hull), SA:V ratio, convexity, sphericity, packing, interstitial space, average branch width distance (see definitions in glossary).
+
+# Preliminary Results
+
+## Visual comparison of photogrammetric and manual measurements
+
+Here we look at how well manual measurements correlated to those made using photogrammetry. We'll examine convex hull volume and coral volume vs. ellipsoid volume extrapolated from manual measurements, as well as height, length, and width (photogrammetry vs manual)
+
+```{r fig1_creator, message=FALSE, include = FALSE}
+#Volume - Coral
+volume <- ggplot(dim_bind, aes(x=volume_pg, y=volume_field))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  scale_y_continuous(breaks=seq(0,max(dim_bind$volume_field), by = 5000))+
+  scale_x_continuous(breaks=seq(0,max(dim_bind$volume_pg)+1500, by = 2000))+
+  theme_classic()+
+  labs(y= expression(paste("Ellipsoid Volume (cm"^{3},")")), x= expression(paste("Model Coral Volume (cm"^{3},")")))+
+  geom_abline(intercept = 0, slope = 1, size = 1, color='black', lty = "dashed") +
+  theme(axis.text.x = element_text(angle = 305, vjust=0, hjust = .3))#x intercept changed to be forced through 0
+
+#Volume - Convex Hull vs ellipsoid
+convex <- ggplot(coral_dim, aes(x=max_hull_volume, y = volume_field))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  scale_y_continuous(breaks=seq(0,max(coral_dim$volume_field), by = 5000))+
+  scale_x_continuous(breaks=seq(0,max(coral_dim$max_hull_volume, na.rm = TRUE)+1500, by = 5000))+
+  theme_classic()+
+  labs(y= expression(paste("Ellipsoid Volume (cm"^{3},")")), 
+       x= expression(paste("Convex Hull Volume (cm"^{3},")"))) +
+  geom_abline(intercept = 0, slope = 1, size = 1, lty = "dashed", color='black') +
+    theme(axis.text.x = element_text(angle = 305, vjust=0, hjust = .3))#x intercept changed to be forced through 0
+
+ #x intercept changed to be forced through 0
+fig1 <- cowplot::plot_grid(volume, convex, ncol = 2, nrow = 1, 
+          align = "vh", labels = c("A","B"))
+fig1_fin <- annotate_figure(fig1,
+                top = text_grob("Photogrammetry vs. Manual Volume Estimates", color = "black", face = "bold", size = 14),
+                fig.lab = "Figure 1", fig.lab.face = "bold")  
+```
+  
+```{r fig1, fig.width = 9, fig.height = 6, message=FALSE, echo = FALSE}
+fig1_fin
+```
+
+```{r fig1_cleanup, include = FALSE}
+
+remove(length, width, height, volume, convex, fig1)
+
+```
+
+It appears that the estimates of ellipsoid volume overestimate actual coral volume, but corresponds well to convex hull volume. This suggests that ellipsoid volume is in fact a reasonable approximation of the maximum amount of space a coral takes up. Therefore, any improvements in ecological understanding yielded by the use of photogrammetry-based measurements is likely due to the technique's ability to capture different *types* of information about habitat structure, and not necessarily because of improved measurement accuracy
+
+## How well do manual and digital measurements predict ecological phenomena?
+
+Next, we will look at whether the estimation of skeletal volume made available by digital measurements allows better predictions of an ecological phenomenon known to relate to coral volume. In this case, we look at the relationship between the composition of resident associated fishes and invertebrates (CAFI) and manually vs. digitally derived measurements of coral volume and available living space.
+
+
+```{r fig3 prep, include=FALSE, include=FALSE}
+
+formula1 <- y~x
+
+#Plot invert abundance to  volume
+invert_field <- ggplot(cafi_coral, aes(x=volume_field, y=num_cafi))+ 
+  geom_point()+
+  geom_smooth(method=lm, formula = formula1)+
+  theme_classic()+
+  labs(y="CAFI Abundance", x= expression(paste("Manual Volume (cm"^{3},")"))) +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+#Plot invert abundance to software estimated volume
+invert_pg <- ggplot(cafi_coral, aes(x=volume_pg, y=num_cafi))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  labs(y="CAFI Abundance", x= expression(paste("Photogrammetry Volume (cm"^{3},")"))) +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+#Plot invert richness to software estimated volume
+richness_field <- ggplot(cafi_coral, aes(x=volume_field, y=cafi_richness))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  labs(y="CAFI Richness", x= expression(paste("Manual Volume (cm"^{3},")"))) +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+#Plot invert richness to software estimated volume
+richness_pg <- ggplot(cafi_coral, aes(x=volume_pg, y=cafi_richness))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  labs(y="CAFI Richness", x= expression(paste("Photogrammetry Volume (cm"^{3},")"))) +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+fig3_raw <- plot_grid(invert_field, invert_pg, richness_field, richness_pg, nrow = 2, align = "vh", labels = "AUTO")
+fig3_title <- ggdraw() + draw_label("Volume vs. CAFI Comparison", fontface = "bold", size = 14)
+fig3 <-  plot_grid(fig3_title,fig3_raw, nrow = 2, rel_heights = c(.1,1))
+fig3_fin <- annotate_figure(fig3,
+                fig.lab = "Figure 3", fig.lab.face = "bold")  
+```
+
+```{r fig3, fig.width = 9, fig.height = 6, message=FALSE, echo = FALSE}
+fig3_fin
+```
+
+```{r cafi_regression_table, include = FALSE}
+
+# lm_invert_field <- lm(num_cafi~volume_field, data=cafi_coral)
+# lm_invert_pg <- lm(num_cafi~volume_pg, data=cafi_coral)
+# lm_richness_field <- lm(cafi_richness~volume_field, data=cafi_coral)
+# lm_richness_pg <- lm(cafi_richness~volume_pg, data=cafi_coral)
+# lm_invert_hull <- lm(num_cafi~max_hull_volume, data=cafi_coral)
+# lm_richness_hull <- lm(cafi_richness~max_hull_volume, data=cafi_coral)
+# 
+# pl_ellipse <- c(
+#   '(Intercept)' = "Intercept",
+#   volume_field = "Ellipsoid Volume")
+# pl_volume <- c(
+#   '(Intercept)' = "Intercept",
+#   volume_pg = "Photogrammetry Volume")
+# pl_hull <- c(
+#   '(Intercept)' = "Intercept",
+#   max_hull_volume = "Hull Volume")
+# 
+# cafi_volume_reg_tab <- tab_model(lm_invert_field, lm_invert_hull, lm_invert_pg,
+#           show.intercept = FALSE,
+#           pred.labels = c(pl_ellipse,pl_volume,pl_hull),
+#           string.est = "Slope",
+#           string.ci = "Slope CI (95%)",
+#           string.p = "p-Value",
+#           digits=5,
+#           dv.labels = c("Ellipsoid Volume vs. Abundance","Hull Volume vs. Abundance", "Coral Volume vs. Abundance"))
+# 
+# #HTML table comparing volume methods and richness
+# 
+# cafi_richness_reg_tab <- tab_model(lm_richness_field, lm_richness_hull, lm_richness_pg,
+#           show.intercept = FALSE,
+#           pred.labels = c(pl_ellipse,pl_volume,pl_hull),
+#           string.est = "Slope",
+#           string.ci = "Slope CI (95%)",
+#           string.p = "p-Value",
+#           digits=5,
+#           dv.labels = c("Ellipsoid Volume vs. Richness","Hull Volume vs. Richness", "Coral Volume vs. Richness"))
+```
+ 
+```{r cafi_volume_tables, include = TRUE, echo = FALSE}
+# cafi_volume_reg_tab
+# cafi_richness_reg_tab
+```
+
+```{r fig3_cleanup, include = FALSE}
+
+remove(pl_ellipse,fig3_raw, fig3_title, invert_field, richness_field, fig3)
+```
+
+We've seen that photogrammetry-enabled measurements of skeletal volume could potentially explain more variation in CAFI community composition  than ellipsoid volume. Now let's look at another ecologically relevant phenomenon: coral growth. We examined how measurements of coral growth compared between manual-measurement based ellipse estimates and photogrammetry-derived estimates of skeletal volume. 
+
+```{r growth_fig_prep, include = FALSE}
+
+december_manual <- read.csv(here("morphometric_data", "field_experiment_colony_measurements_moorea_december2019_v2.csv"))
+december_photo <- read.csv(here("morphometric_data","maatea_experiment_photo_measurements_december_JC_2020_7_8.csv"))
+
+december_manual$coral_id <- as.character(december_manual$coral_id)
+december_photo$coral_id <- as.character(december_photo$coral_id)
+
+december_photo <- december_photo %>% filter(coral_id %in% coral_dim$coral_id, volume_pg != "NA")
+
+december_photo$vol_pg_aug <- coral_dim$volume_pg[match(december_photo$coral_id,coral_dim$coral_id)]
+december_photo$sa_aug <-  coral_dim$SA[match(december_photo$coral_id,coral_dim$coral_id)]
+
+december_photo <- december_photo %>% mutate(volume_pg = volume_pg*10^6)
+december_photo <- december_photo %>% mutate(vol_growth_pg = volume_pg - vol_pg_aug,
+         prop_growth_pg = vol_growth_pg/vol_pg_aug*100)
+
+december_manual <- december_manual %>% filter(coral_id %in% december_photo$coral_id) %>%
+  mutate(vol_growth_man = volume_est_dec - volume_est) %>% mutate(prop_growth_man = vol_growth_man/volume_est*100)
+```
+
+``` {r growth_boxplots, include = TRUE, echo = FALSE, message = FALSE, warning = FALSE}
+
+aug_and_dec <- left_join(december_photo, december_manual, by = "coral_id")
+
+dumbbell_volume <- ggplot(aug_and_dec, aes(x = vol_growth_man, xend = vol_growth_pg, y = coral_id)) +
+  geom_segment(aes(x=vol_growth_man, 
+                         xend=vol_growth_pg, 
+                         y=coral_id, 
+                         yend=coral_id), 
+                     color="#b2b2b2", size=1.5)+
+  geom_dumbbell(color="light blue", 
+                      size_x=3.5, 
+                      size_xend = 3.5,
+                      colour_x="#edae52", 
+                      colour_xend = "#9fb059") +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+        labs(x="Growth (Volume)", y="Coral ID") +
+  theme_classic()
+
+dumbbell_prop <- ggplot(aug_and_dec, aes(x = prop_growth_man, xend = prop_growth_pg, y = coral_id)) +
+  geom_segment(aes(x=prop_growth_man, 
+                         xend=prop_growth_pg, 
+                         y=coral_id, 
+                         yend=coral_id), 
+                     color="#b2b2b2", size=1.5)+
+  geom_dumbbell(color="light blue", 
+                      size_x=3.5, 
+                      size_xend = 3.5,
+                      colour_x="#edae52", 
+                      colour_xend = "#9fb059")+
+        labs(x="% Growth (Volume)", y="Coral ID") + 
+   geom_vline(xintercept = 0, linetype = "dashed") +
+  theme_classic() +
+  theme(axis.ticks.y = element_blank(), axis.title.y = element_blank(),
+        axis.text.y = element_blank())
+
+growth_plot_legend <- get_legend(ggplot(coral_dim, aes(x = length_pg, y = volume_pg, color = cafi)) +
+  geom_point(size = 3.5) +
+  scale_color_manual(labels = c("Ellipse","Photo Model"), values = c("#edae52", "#9fb059")) +
+  theme_classic() +
+  theme(legend.title = element_blank(), legend.background = element_blank()))
+
+plot_grid(dumbbell_volume, dumbbell_prop, growth_plot_legend, 
+          ncol = 3, nrow = 1, align = 'vh', rel_widths = c(.65,.55, .25))
+
+```
+
+``` {r growth_fig_followup_prep, include = FALSE, echo = FALSE}
+
+manual_dec_trim <- december_manual %>% select(coral_id, volume = volume_est_dec, volume_aug = volume_est, growth = vol_growth_man, prop_growth = prop_growth_man) %>% mutate(method = "Ellipse")
+
+photo_dec_trim <- december_photo %>% select(coral_id, volume = volume_pg, volume_aug = vol_pg_aug, growth = vol_growth_pg, prop_growth = prop_growth_pg) %>% mutate(method = "Photo")
+
+december_stacked <- rbind(manual_dec_trim,photo_dec_trim)
+december_summary_stats <- december_stacked %>% group_by(method) %>% summarize(
+  mean_growth = mean(growth), mean_prop_growth = mean(prop_growth),
+  se_vol = sd(growth)/sqrt(n()), se_prop = sd(prop_growth)/sqrt(n())
+)
+
+growth_mean_plot <- 
+  ggplot(december_summary_stats, aes(x = method, y = mean_growth, color = method)) +
+    geom_jitter(data = december_stacked, aes(x = method, y = growth),
+                width = 0.05, size = 2, alpha = 0.5, color = "gray50") +
+    geom_errorbar(aes(ymin = mean_growth - se_vol,
+                      ymax = mean_growth + se_vol), width = 0.5, size = 1.2, color = "black") +
+    geom_point(size = 4.5, color = "black") +
+    geom_point(size = 3) +
+    scale_color_manual(labels = c("Ellipse","Photo Model"), values = c("#edae52", "#9fb059")) +
+    geom_hline(aes(yintercept = 0), linetype = "dashed") +
+    labs(x = "", y = expression(paste("Growth (cm"^{3},")"))) +
+    scale_x_discrete(expand = c(0,1.5)) +
+    theme_classic() +
+    theme(legend.position = "none", aspect.ratio = (2))
+
+prop_mean_plot <- ggplot(december_summary_stats, aes(x = method, y = mean_prop_growth, 
+                                                         color = method)) +
+    geom_jitter(data = december_stacked, aes(x = method, y = prop_growth),
+                width = 0.05, size = 2, alpha = 0.5, color = "gray50") +
+    geom_errorbar(aes(ymin = mean_prop_growth - se_prop,
+                      ymax = mean_prop_growth + se_prop), width = 0.5, 
+                  size = 1.2, color = "black") +
+    geom_point(size = 4.5, color = "black") +
+    geom_point(size = 3) +
+    scale_color_manual(labels = c("Ellipse","Photo Model"), values = c("#edae52", "#9fb059")) +
+    geom_hline(aes(yintercept = 0), linetype = "dashed") +
+    labs(x = "", y = expression(paste("% Growth"))) +
+    scale_x_discrete(expand = c(0,1.5)) +
+    theme_classic() +
+    theme(legend.position = "none", aspect.ratio = (2))
+
+growth_t_plot_raw <- plot_grid(growth_mean_plot, prop_mean_plot, nrow = 1, align = "vh", labels = "AUTO")
+
+growth_scatter <- ggplot(aug_and_dec, aes(vol_growth_man, vol_growth_pg)) +
+    geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_smooth(method = "lm", color = "lightslategray") +
+   geom_point(size = 3, color = "coral") +
+  labs(x = expression(paste("Manual Ellipse Growth (cm"^{3},")")),
+       y = expression(paste("Photo Model Growth (cm"^{3},")"))) +
+  theme_classic() +
+  theme(panel.border = element_rect(color = "black", fill = NA, size =2))
+
+prop_growth_scatter <- ggplot(aug_and_dec, aes(prop_growth_man, prop_growth_pg)) +
+    geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_smooth(method = "lm", color = "lightslategray") +
+   geom_point(size = 3, color = "coral") +
+  labs(x = "% Ellipse Growth", y = "% Photo Model Growth") +
+  theme_classic() +
+  theme(panel.border = element_rect(color = "black", fill = NA, size =2))
+
+growth_scatter_a <- ggMarginal(growth_scatter, type = "density", fill = "coral", color = "lightslategray")
+growth_scatter_b <- ggMarginal(prop_growth_scatter, type = "density", fill = "coral", color = "lightslategray")
+
+# growth_vs_volume <- 
+growth_v_vol_man <- ggplot(aug_and_dec, aes(volume_est, vol_growth_man)) +
+  geom_point(size = 3, color = "#edae52") +
+  geom_smooth(method = "lm", color = "lightslategray", formula = "formula1") +
+  labs(x = expression(paste("Initial Ellipse Volume (cm"^{3},")")),
+       y = expression(paste("Growth (cm"^{3},")"))) +
+       stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5) +
+  theme_classic()
+
+growth_v_vol_pg <-ggplot(aug_and_dec, aes(vol_pg_aug, vol_growth_pg)) +
+  geom_point(size = 3, color = "#9fb059") +
+  geom_smooth(method = "lm", color = "lightslategray", formula = "formula1") +
+  labs(x = expression(paste("Initial Skeletal Volume (cm"^{3},")")),
+       y = expression(paste("Growth (cm"^{3},")"))) +
+     stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5) +
+  theme_classic()
+
+prop_v_vol_man <- ggplot(aug_and_dec, aes(volume_est, prop_growth_man)) +
+  geom_point(size = 3, color = "#edae52") +
+  geom_smooth(method = "lm", color = "lightslategray", formula = "formula1") +
+  labs(x = expression(paste("Initial Ellipse Volume (cm"^{3},")")),
+       y = expression(paste("% Growth"))) +
+       stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5) +
+  theme_classic()
+
+prop_v_vol_pg <-ggplot(aug_and_dec, aes(vol_pg_aug, prop_growth_pg)) +
+  geom_point(size = 3, color = "#9fb059") +
+  geom_smooth(method = "lm", color = "lightslategray", formula = "formula1") +
+  labs(x = expression(paste("Initial Skeletal Volume (cm"^{3},")")),
+       y = expression(paste("% Growth"))) +
+     stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5) +
+  theme_classic()
+
+growth_v_vol_raw <- plot_grid(growth_v_vol_man, growth_v_vol_pg, prop_v_vol_man, prop_v_vol_pg,
+          nrow = 2, ncol = 2, align = 'vh', labels = "AUTO")
+
+growth_v_vol_fig <- plot_grid(growth_v_vol_raw, growth_plot_legend, rel_widths = c(6, 1.2),
+                              align = 'v')
+
+joined_growth_v_vol <- ggplot(december_stacked, aes(volume_aug, growth, color = method)) +
+  geom_point(size = 2) +
+  geom_smooth(method = "lm", formula = "formula1") +
+  stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5) +
+  theme_classic() +
+  scale_color_manual(labels = c("Ellipse","Photo Model"), values = c("#edae52", "#9fb059")) +
+  labs(x = expression(paste("Initial Volume (cm"^{3},")")),
+       y = expression(paste("Growth (cm"^{3},")"))) 
+
+joined_prop_v_vol <- ggplot(december_stacked, aes(volume_aug, prop_growth, color = method)) +
+  geom_point(size = 2) +
+  geom_smooth(method = "lm", formula = "formula1") +
+  stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5) +
+  theme_classic() +
+  scale_color_manual(labels = c("Ellipse","Photo Model"), values = c("#edae52", "#9fb059")) +
+  labs(x = expression(paste("Initial Volume (cm"^{3},")")),
+       y = expression(paste("% Growth (cm")))
+
+growth_v_vol_joined <- plot_grid(joined_growth_v_vol, joined_prop_v_vol, nrow = 2, ncol = 1, labels = "AUTO")
+
+
+# growth_v_sa_pg <-ggplot(aug_and_dec, aes(sa_aug, vol_growth_pg)) +
+#   geom_point(size = 3, color = "#9fb059") +
+#   geom_smooth(method = "lm", color = "lightslategray", formula = "formula1") +
+#   labs(x = expression(paste("Initial Surface Area (cm"^{2},")")),
+#        y = expression(paste("Growth (cm"^{3},")"))) +
+#      stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+#                label.x.npc = "right", label.y.npc = "bottom",
+#                formula = formula1, parse = TRUE, size = 5) +
+#   theme_classic()
+# 
+# 
+# prop_v_sa_pg <-ggplot(aug_and_dec, aes(sa_aug, prop_growth_pg)) +
+#   geom_point(size = 3, color = "#9fb059") +
+#   geom_smooth(method = "lm", color = "lightslategray", formula = "formula1") +
+#   labs(x = expression(paste("Initial Surface Area (cm"^{2},")")),
+#        y = expression(paste("% Growth"))) +
+#      stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+#                label.x.npc = "right", label.y.npc = "bottom",
+#                formula = formula1, parse = TRUE, size = 5) +
+#   theme_classic()
+
+
+#  plot_grid(growth_v_sa_pg, prop_v_sa_pg) - Looks very similar to volume but weaker relationship
+
+# Table describing means
+# paired t-test for growth
+
+```
+Mean growth - ellipse: `r mean(manual_dec_trim$growth)` +/- `r sd(manual_dec_trim$growth)`
+
+Mean growth - photo: `r mean(photo_dec_trim$growth)` +/- `r sd(photo_dec_trim$growth)`
+
+Prop growth - ellipse: `r mean(manual_dec_trim$prop_growth)` +/- `r sd(manual_dec_trim$prop_growth)`
+
+Prop growth - photo: `r mean(photo_dec_trim$prop_growth)` +/- `r sd(photo_dec_trim$prop_growth)`
+
+```{r growth_figs_followup, include = TRUE, echo = FALSE, warning = FALSE}
+
+plot_grid(growth_scatter_a, growth_scatter_b)
+growth_v_vol_fig
+
+```
+
+```{r growth_fig_joined, fig.width = 6, fig.height = 8, include = TRUE, echo = FALSE}
+
+growth_v_vol_joined
+
+```
+
+
+# Preliminary interpretations
+
+The broad conclusions I would draw from these preliminary analyses and visualizations are:
+
+* Ellipsoid calculations of coral volume are a reasonable approximation of the maximum amount of space a coral colony occupies, as it seems to compare closely with convex hull volume. However, these approximations still overestimate coral skeletal volume by 1-2x, depending on coral morphology (Supp Figure?)
+
+* The ability to measure coral skeletal volume improved predictions of CAFI abundance and richness based on substantially higher amounts of variation explained by regression. 
+
+* The ability to measure and compare coral skeletal volume also enables fine, scale and more consistent measurement of growth over a short time. Ellipse-based measurements of growth were swamped by variability, and appear to be much more variable than skeletal growth measurements indicate. This may be due to measurement rounding, or compounded measurement error inherent in calculating an ellipsoid volume from three linear measurements.Skeletal growth estimates, conversely, were ecologically plausible, and importantly all positive, whereas several ellipse-based comparisons actually showed negative growth.
+
+
+* Whether or not photogrammetry is a worthwhile exercise will depend heavily on the study system, question, and level of resolution needed to answer project-specific questions. However, photogrammetry has the potential to improve predictions of ecological phenomena that rely on motphological features that are difficult to accurately quantify using in-situ manual measurements.
+
+# Next steps
+
+* Finish modifying manual of both our methods and best practices for methods/supplement
+* Edit methods text, shore up results, more detailed outline of intro and discussion
+* Pick figures for body and supplement
+
+# Potential Supplemental Figures
+
+Amount of overestimation of ellipsoid of skeletal volume. Appears to be consistently proportional across coral volumes. Not shown here, but if parsed out by "tight vs wide", overestimation is about 2x as large on wide branching corals but also doesn't change proportionally to volume.
+
+```{r fig2_prep, message=FALSE, include=FALSE}
+# Calculate difference between photogrammetry and manually derived measurements
+
+coral_dim <- coral_dim %>% mutate(prop_est=(volume_field-volume_pg)/volume_pg*100, #Percent difference of ellipsoid compared to photogrammetry volume
+            diff_est=volume_field-volume_pg, #absolute difference between ellipsoid and photogrammetry volume
+            prop_conv = (volume_field-max_hull_volume)/max_hull_volume*100,
+            diff_conv = volume_field-max_hull_volume)
+
+#Absolute difference - coral volume
+plot_est <- ggplot(coral_dim, aes(x=volume_pg, y=diff_est))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  labs(y= expression(atop("Volume (Manual - Photo)", paste("(cm"^{3},")"))), x= expression(paste("Photogrammetry Volume (cm"^{3},")"))) +
+  ggtitle("Coral Volume")
+
+#Proportional difference - coral volume
+plot_prop <- ggplot(coral_dim, aes(x=volume_pg, y=prop_est))+
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  labs(y= expression(atop("Percent Volume Difference", "(Manual - Photo)")), x= expression(paste("Photogrammetry Volume (cm"^{3},")"))) +
+  theme(legend.position = "none")
+
+#Absolute difference - convex hull
+
+conv_est <- ggplot(coral_dim, aes(x=max_hull_volume, y=diff_conv))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  labs(y= expression(atop("Volume (Manual - Hull)", paste("(cm"^{3},")"))), x= expression(paste("Convex Hull Volume (cm"^{3},")"))) +
+  ggtitle("Convex Hull") +
+  xlim(c(0,max(coral_dim$max_hull_volume, na.rm = TRUE)+5000)) +
+  theme(legend.position="none")
+
+#Proportional difference - coral volume
+conv_prop <- ggplot(coral_dim, aes(x=max_hull_volume, y=prop_conv))+
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  xlim(c(0,max(coral_dim$max_hull_volume, na.rm = TRUE)+5000)) +
+  labs(y= expression(atop("Percent Volume Difference", "(Manual - Photo)")), x= expression(paste("Convex Hull Volume (cm"^{3},")"))) +
+  theme(legend.position = "none")
+
+# Arrange
+
+fig2_nolegend <- plot_grid(plot_est,plot_prop,conv_est,conv_prop, nrow = 2, ncol = 2, align = 'vh', labels = "AUTO")
+fig2_title <- ggdraw() + draw_label("Absolute and Proportional Differences - Manual vs. Photo", fontface = "bold", size = 14)
+
+fig2 <- plot_grid(fig2_title,fig2_nolegend, nrow = 2, rel_heights = c(.1,1))
+fig2_fin <- annotate_figure(fig2,
+                fig.lab = "Figure 2", fig.lab.face = "bold")  
+```
+
+```{r fig2, fig.width = 9, fig.height = 6, message=FALSE, echo = FALSE}
+fig2_fin
+```
+
+```{r fig4prep, message=FALSE, include=FALSE}
+
+lm_invert_field <- lm(num_cafi~volume_field, data=cafi_coral)
+lm_invert_pg <- lm(num_cafi~volume_pg, data=cafi_coral)
+lm_richness_field <- lm(cafi_richness~volume_field, data=cafi_coral)
+lm_richness_pg <- lm(cafi_richness~volume_pg, data=cafi_coral)
+lm_invert_hull <- lm(num_cafi~max_hull_volume, data=cafi_coral)
+lm_richness_hull <- lm(cafi_richness~max_hull_volume, data=cafi_coral)
+
+pl_ellipse <- c(
+  '(Intercept)' = "Intercept",
+  volume_field = "Ellipsoid Volume")
+pl_volume <- c(
+  '(Intercept)' = "Intercept",
+  volume_pg = "Photogrammetry Volume")
+pl_hull <- c(
+  '(Intercept)' = "Intercept",
+  max_hull_volume = "Hull Volume")
+
+invert_hull <- ggplot(cafi_coral, aes(x=max_hull_volume, y=num_cafi))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  xlim(c(0,max(coral_dim$max_hull_volume, na.rm = TRUE)+5000)) +
+  labs(y="CAFI Abundance", x= expression(paste("Hull Volume (cm"^{3},")")))
+
+richness_hull <- ggplot(cafi_coral, aes(x=max_hull_volume, y=cafi_richness))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  xlim(c(0,max(coral_dim$max_hull_volume, na.rm = TRUE)+5000)) +
+  labs(y="CAFI Richness", x= expression(paste("Photogrammetry Volume (cm"^{3},")")))
+
+#Volume - plot1 
+volume <- invert_pg + labs(x=expression(paste("Volume (cm"^{3},")"))) +
+  theme(axis.title.y=element_blank()) +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+#Sphericity - plot2
+sphericity <- ggplot(cafi_coral, aes(x=sphericity, y=num_cafi))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  theme(axis.title.y=element_blank())+
+  labs(x="Sphericity") +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+lm_sphericity <- lm(num_cafi~sphericity, data = cafi_coral)
+
+#Packing - plot3
+packing <- ggplot(cafi_coral, aes(x=packing, y=num_cafi))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  theme(axis.title.y=element_blank())+
+  labs(x="Packing") +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+lm_packing <- lm(num_cafi~packing, data = cafi_coral)
+
+#Height - plot4
+height <- ggplot(cafi_coral, aes(x=height_pg, y=num_cafi))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  theme(axis.title.y=element_blank())+
+  labs(x="Height (cm)") +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+lm_height <- lm(num_cafi~height_pg, data = cafi_coral)
+
+#Length - plot5
+length <- ggplot(cafi_coral, aes(x=length_pg, y=num_cafi))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  theme(axis.title.y=element_blank())+
+  labs(x="Length (cm)") +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+lm_length <- lm(num_cafi~length_pg, data = cafi_coral)
+
+#Width - plot6
+width <- ggplot(cafi_coral, aes(x=width_pg, y=num_cafi))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  theme(axis.title.y=element_blank())+
+  labs(x="Width (cm)") +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+lm_width <- lm(num_cafi~width_pg, data = cafi_coral)
+
+#Convexity
+convexity <- ggplot(cafi_coral, aes(x=convexity, y=num_cafi))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  theme(axis.title.y=element_blank())+
+  labs(x="Convexity") +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+lm_conv <- lm(num_cafi~convexity, data = cafi_coral)
+
+#Branch Width
+branch_width <- ggplot(cafi_coral, aes(x=avg_w_cm, y=num_cafi))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  theme(axis.title.y=element_blank())+
+  labs(x="Branch Width (cm)") +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+lm_bw <- lm(num_cafi~avg_w_cm, data = cafi_coral)
+
+#Interstitial Space
+interstitial <- ggplot(cafi_coral, aes(x=interstitial_space, y=num_cafi))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  theme(axis.title.y=element_blank())+
+  labs(x=expression(paste("Interstitial Volume (cm"^{3},")"))) +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+lm_interstitial <- lm(num_cafi~interstitial_space, data = cafi_coral)
+
+#Surface Area
+surface_area <- ggplot(cafi_coral, aes(x=SA, y=num_cafi))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  theme(axis.title.y=element_blank())+
+  labs(x=expression(paste("Surface Area (cm"^{2},")"))) +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+lm_invert_sa <- lm(num_cafi~SA, data = cafi_coral)
+
+SAV <- ggplot(cafi_coral, aes(x=SAV, y=num_cafi))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  theme(axis.title.y=element_blank())+
+  labs(x=expression(paste("Surface Area/Volume"))) +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+lm_invert_sav <- lm(num_cafi~SAV, data = cafi_coral)
+
+convex_SA <- ggplot(cafi_coral, aes(x=max_hull_SA, y=num_cafi))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  theme(axis.title.y=element_blank())+
+  labs(x=expression(paste("Hull Surface Area (cm"^{2},")"))) +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+lm_convex_sa <- lm(num_cafi~max_hull_SA, data = cafi_coral)
+
+convex_hull <- invert_hull +
+  labs(x=expression(paste("Hull Volume (cm"^{3},")"))) +
+  theme(axis.title.y=element_blank()) +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+fig4_title <- ggdraw() + draw_label("Morphological Attributes vs. CAFI Abundance", fontface = "bold", size = 14)
+fig4_raw <- plot_grid(volume, surface_area, SAV, 
+                  convex_hull, convex_SA, convexity,
+                  sphericity, interstitial, branch_width,
+                  length, width, height, 
+                  ncol = 3, nrow = 4, align = "vh"
+                  )
+
+fig4 <- plot_grid(fig4_title,fig4_raw, nrow = 2, rel_heights = c(.1,1))
+fig4_fin <- annotate_figure(fig4,
+                left = text_grob("CAFI Abundance", color = "black",
+                                   rot = 90, face = "bold", size = 12),
+                fig.lab = "Figure 4", fig.lab.face = "bold")
+
+
+```
+
+```{r fig4, include = TRUE, fig.width = 9, fig.height = 10, echo = FALSE}
+fig4_fin
+```
+
+```{r cafi_morph_regression_table prep, include = FALSE}
+pl_sa <- c(
+  '(Intercept)' = "Intercept",
+  max_hull_volume = "Surface Area")
+pl_sav <- c(
+  '(Intercept)' = "Intercept",
+  max_hull_volume = "Surface Area:Volume")
+pl_hull_sa <- c(
+  '(Intercept)' = "Intercept",
+  max_hull_volume = "Hull Surface Area")
+pl_convexity <- c(
+  '(Intercept)' = "Intercept",
+  max_hull_volume = "Convexity")
+pl_sphericity <- c(
+  '(Intercept)' = "Intercept",
+  max_hull_volume = "Sphericity")
+pl_interstitial <- c(
+  '(Intercept)' = "Intercept",
+  max_hull_volume = "Interstitial Space")
+pl_convexity <- c(
+  '(Intercept)' = "Intercept",
+  max_hull_volume = "Convexity")
+pl_bw <- c(
+  '(Intercept)' = "Intercept",
+  max_hull_volume = "Branch Width")
+pl_length <- c(
+  '(Intercept)' = "Intercept",
+  max_hull_volume = "Length")
+pl_width <- c(
+  '(Intercept)' = "Intercept",
+  max_hull_volume = "Width")
+pl_height <- c(
+  '(Intercept)' = "Intercept",
+  max_hull_volume = "Height")
+
+cafi_morph_tab1 <- tab_model(lm_invert_pg, lm_invert_sa, lm_invert_sav,
+          show.intercept = FALSE,
+          pred.labels = c(pl_volume,pl_sa,pl_sav),
+          string.est = "Slope",
+          string.ci = "Slope CI (95%)",
+          string.p = "p-Value",
+          digits=5,
+          dv.labels = c("Photo Volume vs. Abundance","Surface Area vs. Abundance", "Surface Area:Volume vs. Abundance"))
+
+cafi_morph_tab2 <-tab_model(lm_invert_hull, lm_convex_sa, lm_conv,
+          show.intercept = FALSE,
+          pred.labels = c(pl_hull,pl_hull_sa,pl_convexity),
+          string.est = "Slope",
+          string.ci = "Slope CI (95%)",
+          string.p = "p-Value",
+          digits=5,
+          dv.labels = c("Hull Volume vs. Abundance","Hull Surface Area vs. Abundance", "Convexity vs. Abundance"))
+
+cafi_morph_tab3<- tab_model(lm_sphericity, lm_interstitial, lm_bw,
+          show.intercept = FALSE,
+          pred.labels = c(pl_sphericity,pl_interstitial,pl_bw),
+          string.est = "Slope",
+          string.ci = "Slope CI (95%)",
+          string.p = "p-Value",
+          digits=5,
+          dv.labels = c("Sphericity vs. Abundance","Interstitial Space vs. Abundance", "Branch Width vs. Abundance"))
+
+cafi_morph_tab4 <- tab_model(lm_length, lm_width, lm_height,
+          show.intercept = FALSE,
+          pred.labels = c(pl_length,pl_width,pl_height),
+          string.est = "Slope",
+          string.ci = "Slope CI (95%)",
+          string.p = "p-Value",
+          digits=5,
+          dv.labels = c("Length vs. Abundance","Width vs. Abundance", "Height vs. Abundance"))
+```
+
+```{r cafi_morph_tab, include = TRUE, echo = FALSE}
+cafi_morph_tab1
+cafi_morph_tab2
+cafi_morph_tab3
+cafi_morph_tab4
+```
+
+```{r fig4bprep, message=FALSE, include=FALSE}
+#Volume - plot1 
+volume <- richness_pg + labs(x=expression(paste("Volume (cm"^{3},")"))) +
+  theme(axis.title.y=element_blank()) +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+#Sphericity - plot2
+sphericity <- ggplot(cafi_coral, aes(x=sphericity, y=cafi_richness))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  theme(axis.title.y=element_blank())+
+  labs(x="Sphericity") +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+lm_sphericity <- lm(cafi_richness~sphericity, data = cafi_coral)
+
+#Packing - plot3
+packing <- ggplot(cafi_coral, aes(x=packing, y=cafi_richness))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  theme(axis.title.y=element_blank())+
+  labs(x="Packing") +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+lm_packing <- lm(cafi_richness~packing, data = cafi_coral)
+
+#Height - plot4
+height <- ggplot(cafi_coral, aes(x=height_pg, y=cafi_richness))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  theme(axis.title.y=element_blank())+
+  labs(x="Height (cm)") +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+lm_height <- lm(cafi_richness~height_pg, data = cafi_coral)
+
+#Length - plot5
+length <- ggplot(cafi_coral, aes(x=length_pg, y=cafi_richness))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  theme(axis.title.y=element_blank())+
+  labs(x="Length (cm)") +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+lm_length <- lm(cafi_richness~length_pg, data = cafi_coral)
+
+#Width - plot6
+width <- ggplot(cafi_coral, aes(x=width_pg, y=cafi_richness))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  theme(axis.title.y=element_blank())+
+  labs(x="Width (cm)") +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+lm_width <- lm(cafi_richness~width_pg, data = cafi_coral)
+
+#Convexity
+convexity <- ggplot(cafi_coral, aes(x=convexity, y=cafi_richness))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  theme(axis.title.y=element_blank())+
+  labs(x="Convexity") +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+lm_conv <- lm(cafi_richness~convexity, data = cafi_coral)
+
+#Branch Width
+branch_width <- ggplot(cafi_coral, aes(x=avg_w_cm, y=cafi_richness))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  theme(axis.title.y=element_blank())+
+  labs(x="Branch Width (cm)") +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+lm_bw <- lm(cafi_richness~avg_w_cm, data = cafi_coral)
+
+#Interstitial Space
+interstitial <- ggplot(cafi_coral, aes(x=interstitial_space, y=cafi_richness))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  theme(axis.title.y=element_blank())+
+  labs(x=expression(paste("Interstitial Volume (cm"^{3},")"))) +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+lm_interstitial <- lm(cafi_richness~interstitial_space, data = cafi_coral)
+
+#Surface Area
+surface_area <- ggplot(cafi_coral, aes(x=SA, y=cafi_richness))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  theme(axis.title.y=element_blank())+
+  labs(x=expression(paste("Surface Area (cm"^{2},")"))) +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+lm_invert_sa <- lm(cafi_richness~SA, data = cafi_coral)
+
+SAV <- ggplot(cafi_coral, aes(x=SAV, y=cafi_richness))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  theme(axis.title.y=element_blank())+
+  labs(x=expression(paste("Surface Area/Volume"))) +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+lm_invert_sav <- lm(cafi_richness~SAV, data = cafi_coral)
+
+convex_SA <- ggplot(cafi_coral, aes(x=max_hull_SA, y=cafi_richness))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  theme(axis.title.y=element_blank())+
+  labs(x=expression(paste("Hull Surface Area (cm"^{2},")"))) +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+lm_convex_sa <- lm(cafi_richness~max_hull_SA, data = cafi_coral)
+
+convex_hull <- richness_hull + labs(x=expression(paste("Hull Volume (cm"^{3},")"))) +
+  theme(axis.title.y=element_blank()) +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5)
+
+
+fig4b_title <- ggdraw() + draw_label("Morphological Attributes vs. CAFI Richness", fontface = "bold", size = 14)
+fig4b_raw <- plot_grid(volume, surface_area, SAV, 
+                  convex_hull, convex_SA, convexity,
+                  sphericity, interstitial, branch_width,
+                  length, width, height, 
+                  ncol = 3, nrow = 4, align = "vh"
+                  ) 
+
+fig4b <- plot_grid(fig4b_title,fig4b_raw, nrow = 2, rel_heights = c(.1,1))
+fig4b_fin <- annotate_figure(fig4b,
+                left = text_grob("CAFI Richness", color = "black",
+                                   rot = 90, face = "bold", size = 12),
+                fig.lab = "Figure 4b", fig.lab.face = "bold")
+
+
+```
+
+```{r fig4b, include = TRUE, fig.width = 9, fig.height = 10, echo = FALSE}
+fig4b_fin
+```
+
+```{r richness_morph_regression_table prep, include = FALSE}
+pl_sa <- c(
+  '(Intercept)' = "Intercept",
+  max_hull_volume = "Surface Area")
+pl_sav <- c(
+  '(Intercept)' = "Intercept",
+  max_hull_volume = "Surface Area:Volume")
+pl_hull_sa <- c(
+  '(Intercept)' = "Intercept",
+  max_hull_volume = "Hull Surface Area")
+pl_convexity <- c(
+  '(Intercept)' = "Intercept",
+  max_hull_volume = "Convexity")
+pl_sphericity <- c(
+  '(Intercept)' = "Intercept",
+  max_hull_volume = "Sphericity")
+pl_interstitial <- c(
+  '(Intercept)' = "Intercept",
+  max_hull_volume = "Interstitial Space")
+pl_convexity <- c(
+  '(Intercept)' = "Intercept",
+  max_hull_volume = "Convexity")
+pl_bw <- c(
+  '(Intercept)' = "Intercept",
+  max_hull_volume = "Branch Width")
+pl_length <- c(
+  '(Intercept)' = "Intercept",
+  max_hull_volume = "Length")
+pl_width <- c(
+  '(Intercept)' = "Intercept",
+  max_hull_volume = "Width")
+pl_height <- c(
+  '(Intercept)' = "Intercept",
+  max_hull_volume = "Height")
+
+cafi_morph_tab1b <- tab_model(lm_richness_pg, lm_invert_sa, lm_invert_sav,
+          show.intercept = FALSE,
+          pred.labels = c(pl_volume,pl_sa,pl_sav),
+          string.est = "Slope",
+          string.ci = "Slope CI (95%)",
+          string.p = "p-Value",
+          digits=5,
+          dv.labels = c("Photo Volume vs. Richness","Surface Area vs. Richness", "Surface Area:Volume vs. Richness"))
+
+cafi_morph_tab2b <-tab_model(lm_richness_hull, lm_convex_sa, lm_conv,
+          show.intercept = FALSE,
+          pred.labels = c(pl_hull,pl_hull_sa,pl_convexity),
+          string.est = "Slope",
+          string.ci = "Slope CI (95%)",
+          string.p = "p-Value",
+          digits=5,
+          dv.labels = c("Hull Volume vs. Richness","Hull Surface Area vs. Richness", "Convexity vs. Richness"))
+
+cafi_morph_tab3b<- tab_model(lm_sphericity, lm_interstitial, lm_bw,
+          show.intercept = FALSE,
+          pred.labels = c(pl_sphericity,pl_interstitial,pl_bw),
+          string.est = "Slope",
+          string.ci = "Slope CI (95%)",
+          string.p = "p-Value",
+          digits=5,
+          dv.labels = c("Sphericity vs. Richness","Interstitial Space vs. Richness", "Branch Width vs. Richness"))
+
+cafi_morph_tab4b <- tab_model(lm_length, lm_width, lm_height,
+          show.intercept = FALSE,
+          pred.labels = c(pl_length,pl_width,pl_height),
+          string.est = "Slope",
+          string.ci = "Slope CI (95%)",
+          string.p = "p-Value",
+          digits=5,
+          dv.labels = c("Length vs. Richness","Width vs. Richness", "Height vs. Richness"))
+```
+
+```{r cafi_morph_tab_richness, include = TRUE, echo = FALSE}
+cafi_morph_tab1b
+cafi_morph_tab2b
+cafi_morph_tab3b
+cafi_morph_tab4b
+```

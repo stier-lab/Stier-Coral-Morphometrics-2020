@@ -62,9 +62,9 @@ updated_cafi <- read.csv(here("cafi_data","cafi_data_w_taxonomy_summer2019_2020_
 
 # Data Preparation and Cleaning
 
-# CAFI data - Inverts only
+# CAFI data
 updated_cafi2 <- updated_cafi %>% filter(str_detect(coral_id, "^FE")) %>%
-  select(master_sort, coral_id, code, type, search_term, lowest_level, phylum, genus, species, general_notes)
+  select(master_sort, coral_id, code, type, search_term, lowest_level, phylum, genus, species, general_notes) 
 
 # Calculate CAFI richness, abundance, and diversity (shannon weiner) for each coral (inverts)
 
@@ -141,9 +141,6 @@ coral_dim$branch_conv <- ifelse(coral_dim$convexity>=0.5, "tight","wide") #class
 # Merge coral and CAFI data
 cafi_coral <- left_join(coral_dim, cafi_summarized2, by ="coral_id") %>% filter(cafi == "empty")
 
-#Create trimmed dataset (not sure why this df is necessary.. maybe clear later on?)
-dim_bind <- coral_dim %>% select(coral_id, ends_with("pg"), ends_with("field"))
-
 #Cleanup
 
 remove(branch_w_summarized, cafi_summarized2, branch_width, coral_field, coral_field2, updated_cafi, coral_pg, updated_cafi2)
@@ -205,21 +202,23 @@ $SA_{hull}$: Surface Area from convex hull, lowest possible surface area of cora
 Here we look at how well manual measurements correlated to those made using photogrammetry. We'll examine convex hull volume and coral volume vs. ellipsoid volume extrapolated from manual measurements, as well as height, length, and width (photogrammetry vs manual)
 
 ```{r fig1_creator, message=FALSE, include = FALSE}
+#SUPPLEMENTAL FIGURE 1
+
 #Volume - Coral
-volume <- ggplot(dim_bind, aes(x=volume_pg, y=volume_field))+ 
-  geom_point()+
-  geom_smooth(method=lm)+
-  scale_y_continuous(breaks=seq(0,max(dim_bind$volume_field), by = 5000))+
-  scale_x_continuous(breaks=seq(0,max(dim_bind$volume_pg)+1500, by = 2000))+
-  theme_classic()+
-  labs(y= expression(paste("Ellipsoid Volume (cm"^{3},")")), x= expression(paste("Model Coral Volume (cm"^{3},")")))+
-  geom_abline(intercept = 0, slope = 1, size = 1, color='black', lty = "dashed") +
-  theme(axis.text.x = element_text(angle = 305, vjust=0, hjust = .3))#x intercept changed to be forced through 0
+# volume <- ggplot(dim_bind, aes(x=volume_pg, y=volume_field))+ 
+#   geom_point()+
+#   geom_smooth(method=lm)+
+#   scale_y_continuous(breaks=seq(0,max(dim_bind$volume_field), by = 5000))+
+#   scale_x_continuous(breaks=seq(0,max(dim_bind$volume_pg)+1500, by = 2000))+
+#   theme_classic()+
+#   labs(y= expression(paste("Ellipsoid Volume (cm"^{3},")")), x= expression(paste("Model Coral Volume (cm"^{3},")")))+
+#   geom_abline(intercept = 0, slope = 1, size = 1, color='black', lty = "dashed") +
+#   theme(axis.text.x = element_text(angle = 305, vjust=0, hjust = .3))#x intercept changed to be forced through 0
 
 #Volume - Convex Hull vs ellipsoid
 convex <- ggplot(coral_dim, aes(x=max_hull_volume, y = volume_field))+ 
   geom_point()+
-  geom_smooth(method=lm)+
+  geom_smooth(method=lm, color = "coral")+
   scale_y_continuous(breaks=seq(0,max(coral_dim$volume_field), by = 5000))+
   scale_x_continuous(breaks=seq(0,max(coral_dim$max_hull_volume, na.rm = TRUE)+1500, by = 5000))+
   theme_classic()+
@@ -228,16 +227,37 @@ convex <- ggplot(coral_dim, aes(x=max_hull_volume, y = volume_field))+
   geom_abline(intercept = 0, slope = 1, size = 1, lty = "dashed", color='black') +
     theme(axis.text.x = element_text(angle = 305, vjust=0, hjust = .3))#x intercept changed to be forced through 0
 
+height <- ggplot(coral_dim, aes(x=height_pg, y=height_field))+ 
+  geom_point()+
+  geom_smooth(method=lm, color = "coral")+
+  theme_classic()+
+  labs(y= "Manual Height (cm)", x= "Photogrammetry Height (cm)")+
+  geom_abline(intercept = 0, slope = 1, size = 1, lty = "dashed", color='black') #x intercept changed to be forced through 0
+
+#Length
+length <- ggplot(coral_dim, aes(x=length_pg, y=length_field))+ 
+  geom_point()+
+  geom_smooth(method=lm, color = "coral")+
+  theme_classic()+
+  labs(y= "Manual Length (cm)", x= "Photogrammetry Length (cm)")+
+  geom_abline(intercept = 0, slope = 1, size = 1, lty = "dashed", color='black') #x intercept changed to be forced through 0
+
+#Width
+width <- ggplot(coral_dim, aes(x=width_pg, y=width_field))+ 
+  geom_point()+
+  geom_smooth(method=lm, color = "coral")+
+  theme_classic()+
+  labs(y= "Manual With (cm)", x= "Photogrammetry Width (cm)")+
+  geom_abline(intercept = 0, slope = 1, size = 1, lty = "dashed", color='black') #x intercept changed to be forced through 0
+
  #x intercept changed to be forced through 0
-fig1 <- cowplot::plot_grid(volume, convex, ncol = 2, nrow = 1, 
-          align = "vh", labels = c("A","B"))
-fig1_fin <- annotate_figure(fig1,
-                top = text_grob("Photogrammetry vs. Manual Volume Estimates", color = "black", face = "bold", size = 14),
-                fig.lab = "Figure 1", fig.lab.face = "bold")  
+fig1 <- cowplot::plot_grid(convex, length, width, height, ncol = 2, nrow = 2, 
+          align = "vh", labels = "AUTO")
+
 ```
   
 ```{r fig1, fig.width = 9, fig.height = 6, message=FALSE, echo = FALSE}
-fig1_fin
+fig1
 ```
 
 ```{r fig1_cleanup, include = FALSE}
@@ -257,6 +277,8 @@ Next, we will look at whether the estimation of skeletal volume made available b
 
 formula1 <- y~x
 
+# cafi_coral <- cafi_coral %>% filter(coral_id != "FE-POC01") # Can be used to take out "outlier" from CAFI plots
+
 #Plot invert abundance to  volume
 invert_field <- ggplot(cafi_coral, aes(x=volume_field, y=num_cafi))+ 
   geom_point()+
@@ -267,7 +289,6 @@ invert_field <- ggplot(cafi_coral, aes(x=volume_field, y=num_cafi))+
                label.x.npc = "right", label.y.npc = "bottom",
                formula = formula1, parse = TRUE, size = 5)
 
-
 #Plot invert abundance to software estimated volume
 invert_pg <- ggplot(cafi_coral, aes(x=volume_pg, y=num_cafi))+ 
   geom_point()+
@@ -276,9 +297,21 @@ invert_pg <- ggplot(cafi_coral, aes(x=volume_pg, y=num_cafi))+
   labs(y="CAFI Abundance", x= expression(paste("Photogrammetry Volume (cm"^{3},")"))) +
    stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
                label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5) 
+
+
+#Plot invert abundance to hull volume
+invert_hull <- ggplot(cafi_coral, aes(x=max_hull_volume, y=num_cafi))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  labs(y="CAFI Abundance", x= expression(paste("Convex Hull Volume (cm"^{3},")"))) +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
                formula = formula1, parse = TRUE, size = 5)
 
-#Plot invert richness to software estimated volume
+
+#Plot invert richness to manual volume
 richness_field <- ggplot(cafi_coral, aes(x=volume_field, y=cafi_richness))+ 
   geom_point()+
   geom_smooth(method=lm)+
@@ -296,18 +329,28 @@ richness_pg <- ggplot(cafi_coral, aes(x=volume_pg, y=cafi_richness))+
   labs(y="CAFI Richness", x= expression(paste("Photogrammetry Volume (cm"^{3},")"))) +
    stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
                label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5) 
+
+#Plot invert richness to software estimated volume
+richness_hull <- ggplot(cafi_coral, aes(x=max_hull_volume, y=cafi_richness))+ 
+  geom_point()+
+  geom_smooth(method=lm)+
+  theme_classic()+
+  labs(y="CAFI Richness", x= expression(paste("Convex Hull Volume (cm"^{3},")"))) +
+   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
                formula = formula1, parse = TRUE, size = 5)
 
 
-fig3_raw <- plot_grid(invert_field, invert_pg, richness_field, richness_pg, nrow = 2, align = "vh", labels = "AUTO")
-fig3_title <- ggdraw() + draw_label("Volume vs. CAFI Comparison", fontface = "bold", size = 14)
-fig3 <-  plot_grid(fig3_title,fig3_raw, nrow = 2, rel_heights = c(.1,1))
-fig3_fin <- annotate_figure(fig3,
-                fig.lab = "Figure 3", fig.lab.face = "bold")  
+fig3_raw <- plot_grid(invert_field, invert_hull, invert_pg, richness_field, richness_hull, richness_pg, nrow = 2, ncol = 3, align = "vh", labels = "AUTO")
+# # fig3_title <- ggdraw() + draw_label("Volume vs. CAFI Comparison", fontface = "bold", size = 14)
+# # fig3 <-  plot_grid(fig3_title,fig3_raw, nrow = 2, rel_heights = c(.1,1))
+# fig3_fin <- annotate_figure(fig3_raw,
+#                 fig.lab = "Figure 3", fig.lab.face = "bold")  
 ```
 
 ```{r fig3, fig.width = 9, fig.height = 6, message=FALSE, echo = FALSE}
-fig3_fin
+fig3_raw
 ```
 
 ```{r cafi_regression_table, include = FALSE}
@@ -373,18 +416,37 @@ december_photo$coral_id <- as.character(december_photo$coral_id)
 december_photo <- december_photo %>% filter(coral_id %in% coral_dim$coral_id, volume_pg != "NA")
 
 december_photo$vol_pg_aug <- coral_dim$volume_pg[match(december_photo$coral_id,coral_dim$coral_id)]
+december_photo$sa_aug <-  coral_dim$SA[match(december_photo$coral_id,coral_dim$coral_id)]
+december_photo$vol_hull_aug <- coral_dim$max_hull_volume[match(december_photo$coral_id,coral_dim$coral_id)]
 
-december_photo <- december_photo %>% mutate(volume_pg = volume_pg*10^6)
+december_photo <- december_photo %>% mutate(volume_pg = volume_pg*10^6, max_hull_volume = max_hull_volume*10^6)
 december_photo <- december_photo %>% mutate(vol_growth_pg = volume_pg - vol_pg_aug,
-         prop_growth_pg = vol_growth_pg/vol_pg_aug*100)
+                                            prop_growth_pg = vol_growth_pg/vol_pg_aug*100,
+                                            hull_growth = max_hull_volume - vol_hull_aug,
+                                            prop_hull_growth = hull_growth/vol_hull_aug*100)
+
 
 december_manual <- december_manual %>% filter(coral_id %in% december_photo$coral_id) %>%
   mutate(vol_growth_man = volume_est_dec - volume_est) %>% mutate(prop_growth_man = vol_growth_man/volume_est*100)
-```
-
-``` {r growth_boxplots, include = TRUE, echo = FALSE, message = FALSE}
 
 aug_and_dec <- left_join(december_photo, december_manual, by = "coral_id")
+
+manual_dec_trim <- december_manual %>% select(coral_id, volume = volume_est_dec, volume_aug = volume_est, growth = vol_growth_man, prop_growth = prop_growth_man) %>% mutate(method = "Ellipse")
+
+photo_dec_trim <- december_photo %>% select(coral_id, volume = volume_pg, volume_aug = vol_pg_aug, growth = vol_growth_pg, prop_growth = prop_growth_pg) %>% mutate(method = "Photo")
+
+photo_hull_trim <- december_photo %>% select(coral_id, volume = max_hull_volume, volume_aug = vol_hull_aug, growth = hull_growth, prop_growth = prop_hull_growth) %>% mutate(method = "Hull")
+
+december_stacked <- rbind(manual_dec_trim,photo_dec_trim, photo_hull_trim)
+december_summary_stats <- december_stacked %>% group_by(method) %>% summarize(
+  mean_growth = mean(growth, na.rm = TRUE), mean_prop_growth = mean(prop_growth, na.rm = TRUE),
+  se_vol = sd(growth, na.rm = TRUE)/sqrt(n()), se_prop = sd(prop_growth, na.rm = TRUE)/sqrt(n()))
+
+```
+
+``` {r growth_boxplots, include = TRUE, echo = FALSE, message = FALSE, warning = FALSE}
+
+
 
 dumbbell_volume <- ggplot(aug_and_dec, aes(x = vol_growth_man, xend = vol_growth_pg, y = coral_id)) +
   geom_segment(aes(x=vol_growth_man, 
@@ -431,123 +493,202 @@ plot_grid(dumbbell_volume, dumbbell_prop, growth_plot_legend,
 
 ``` {r growth_fig_followup_prep, include = FALSE, echo = FALSE}
 
-manual_dec_trim <- december_manual %>% select(coral_id, volume = volume_est_dec, growth = vol_growth_man, prop_growth = prop_growth_man) %>% mutate(method = "Ellipse")
+# Growth Mean Plots
 
-photo_dec_trim <- december_photo %>% select(coral_id, volume = volume_pg, growth = vol_growth_pg, prop_growth = prop_growth_pg) %>% mutate(method = "Photo")
+# growth_mean_plot <- 
+#   ggplot(december_summary_stats, aes(x = method, y = mean_growth, color = method)) +
+#     geom_jitter(data = december_stacked, aes(x = method, y = growth),
+#                 width = 0.05, size = 2, alpha = 0.5, color = "gray50") +
+#     geom_errorbar(aes(ymin = mean_growth - se_vol,
+#                       ymax = mean_growth + se_vol), width = 0.5, size = 1.2, color = "black") +
+#     geom_point(size = 4.5, color = "black") +
+#     geom_point(size = 3) +
+#     scale_color_manual(labels = c("Ellipse", "Hull", "Photo Model"), values = c("#edae52", "coral", "#9fb059")) +
+#     geom_hline(aes(yintercept = 0), linetype = "dashed") +
+#     labs(x = "", y = expression(paste("Growth (cm"^{3},")"))) +
+#     scale_x_discrete(expand = c(0,1.5)) +
+#     theme_classic() +
+#     theme(legend.position = "none", aspect.ratio = (2))
+# 
+# prop_mean_plot <- ggplot(december_summary_stats, aes(x = method, y = mean_prop_growth, 
+#                                                          color = method)) +
+#     geom_jitter(data = december_stacked, aes(x = method, y = prop_growth),
+#                 width = 0.05, size = 2, alpha = 0.5, color = "gray50") +
+#     geom_errorbar(aes(ymin = mean_prop_growth - se_prop,
+#                       ymax = mean_prop_growth + se_prop), width = 0.5, 
+#                   size = 1.2, color = "black") +
+#     geom_point(size = 4.5, color = "black") +
+#     geom_point(size = 3) +
+#     scale_color_manual(labels = c("Ellipse", "Hull", "Photo Model"), values = c("#edae52", "coral", "#9fb059")) +
+#     geom_hline(aes(yintercept = 0), linetype = "dashed") +
+#     labs(x = "", y = expression(paste("% Growth"))) +
+#     scale_x_discrete(expand = c(0,1.5)) +
+#     theme_classic() +
+#     theme(legend.position = "none", aspect.ratio = (2))
+# 
+# growth_t_plot_raw <- plot_grid(growth_mean_plot, prop_mean_plot, nrow = 1, align = "vh", labels = "AUTO")
+# 
 
-december_stacked <- rbind(manual_dec_trim,photo_dec_trim)
-december_summary_stats <- december_stacked %>% group_by(method) %>% summarize(
-  mean_growth = mean(growth), mean_prop_growth = mean(prop_growth),
-  se_vol = sd(growth)/sqrt(n()), se_prop = sd(prop_growth)/sqrt(n())
-)
+# Growth Scatter Plots
+# growth_scatter <- ggplot(aug_and_dec, aes(vol_growth_man, vol_growth_pg)) +
+#     geom_hline(yintercept = 0, linetype = "dashed") +
+#   geom_vline(xintercept = 0, linetype = "dashed") +
+#   geom_smooth(method = "lm", color = "lightslategray") +
+#    geom_point(size = 3, color = "coral") +
+#   labs(x = expression(paste("Manual Ellipse Growth (cm"^{3},")")),
+#        y = expression(paste("Photo Model Growth (cm"^{3},")"))) +
+#   theme_classic() +
+#   theme(panel.border = element_rect(color = "black", fill = NA, size =2))
+# 
+# prop_growth_scatter <- ggplot(aug_and_dec, aes(prop_growth_man, prop_growth_pg)) +
+#     geom_hline(yintercept = 0, linetype = "dashed") +
+#   geom_vline(xintercept = 0, linetype = "dashed") +
+#   geom_smooth(method = "lm", color = "lightslategray") +
+#    geom_point(size = 3, color = "coral") +
+#   labs(x = "% Ellipse Growth", y = "% Photo Model Growth") +
+#   theme_classic() +
+#   theme(panel.border = element_rect(color = "black", fill = NA, size =2))
+# 
+# growth_scatter_a <- ggMarginal(growth_scatter, type = "density", fill = "coral", color = "lightslategray")
+# growth_scatter_b <- ggMarginal(prop_growth_scatter, type = "density", fill = "coral", color = "lightslategray")
 
-growth_mean_plot <- 
-  ggplot(december_summary_stats, aes(x = method, y = mean_growth, color = method)) +
-    geom_jitter(data = december_stacked, aes(x = method, y = growth),
-                width = 0.05, size = 2, alpha = 0.5, color = "gray50") +
-    geom_errorbar(aes(ymin = mean_growth - se_vol,
-                      ymax = mean_growth + se_vol), width = 0.5, size = 1.2, color = "black") +
-    geom_point(size = 4.5, color = "black") +
-    geom_point(size = 3) +
-    scale_color_manual(labels = c("Ellipse","Photo Model"), values = c("#edae52", "#9fb059")) +
-    geom_hline(aes(yintercept = 0), linetype = "dashed") +
-    labs(x = "", y = expression(paste("Growth (cm"^{3},")"))) +
-    scale_x_discrete(expand = c(0,1.5)) +
-    theme_classic() +
-    theme(legend.position = "none", aspect.ratio = (2))
 
-prop_mean_plot <- ggplot(december_summary_stats, aes(x = method, y = mean_prop_growth, 
-                                                         color = method)) +
-    geom_jitter(data = december_stacked, aes(x = method, y = prop_growth),
-                width = 0.05, size = 2, alpha = 0.5, color = "gray50") +
-    geom_errorbar(aes(ymin = mean_prop_growth - se_prop,
-                      ymax = mean_prop_growth + se_prop), width = 0.5, 
-                  size = 1.2, color = "black") +
-    geom_point(size = 4.5, color = "black") +
-    geom_point(size = 3) +
-    scale_color_manual(labels = c("Ellipse","Photo Model"), values = c("#edae52", "#9fb059")) +
-    geom_hline(aes(yintercept = 0), linetype = "dashed") +
-    labs(x = "", y = expression(paste("% Growth"))) +
-    scale_x_discrete(expand = c(0,1.5)) +
-    theme_classic() +
-    theme(legend.position = "none", aspect.ratio = (2))
+# growth_v_vol_man <- ggplot(aug_and_dec, aes(volume_est, vol_growth_man)) +
+#   geom_point(size = 3, color = "#edae52") +
+#   geom_smooth(method = "lm", color = "lightslategray", formula = "formula1") +
+#   labs(x = expression(paste("Initial Ellipse Volume (cm"^{3},")")),
+#        y = expression(paste("Growth (cm"^{3},")"))) +
+#        stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+#                label.x.npc = "right", label.y.npc = "bottom",
+#                formula = formula1, parse = TRUE, size = 5) +
+#   theme_classic()
+# 
+# growth_v_vol_pg <-ggplot(aug_and_dec, aes(vol_pg_aug, vol_growth_pg)) +
+#   geom_point(size = 3, color = "#9fb059") +
+#   geom_smooth(method = "lm", color = "lightslategray", formula = "formula1") +
+#   labs(x = expression(paste("Initial Skeletal Volume (cm"^{3},")")),
+#        y = expression(paste("Growth (cm"^{3},")"))) +
+#      stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+#                label.x.npc = "right", label.y.npc = "bottom",
+#                formula = formula1, parse = TRUE, size = 5) +
+#   theme_classic()
+# 
+# prop_v_vol_man <- ggplot(aug_and_dec, aes(volume_est, prop_growth_man)) +
+#   geom_point(size = 3, color = "#edae52") +
+#   geom_smooth(method = "lm", color = "lightslategray", formula = "formula1") +
+#   labs(x = expression(paste("Initial Ellipse Volume (cm"^{3},")")),
+#        y = expression(paste("% Growth"))) +
+#        stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+#                label.x.npc = "right", label.y.npc = "bottom",
+#                formula = formula1, parse = TRUE, size = 5) +
+#   theme_classic()
+# 
+# prop_v_vol_pg <-ggplot(aug_and_dec, aes(vol_pg_aug, prop_growth_pg)) +
+#   geom_point(size = 3, color = "#9fb059") +
+#   geom_smooth(method = "lm", color = "lightslategray", formula = "formula1") +
+#   labs(x = expression(paste("Initial Skeletal Volume (cm"^{3},")")),
+#        y = expression(paste("% Growth"))) +
+#      stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+#                label.x.npc = "right", label.y.npc = "bottom",
+#                formula = formula1, parse = TRUE, size = 5) +
+#   theme_classic()
+# 
+# growth_v_vol_raw <- plot_grid(growth_v_vol_man, growth_v_vol_pg, prop_v_vol_man, prop_v_vol_pg,
+#           nrow = 2, ncol = 2, align = 'vh', labels = "AUTO")
+# 
+# growth_v_vol_fig <- plot_grid(growth_v_vol_raw, growth_plot_legend, rel_widths = c(6, 1.2),
+#                               align = 'v')
 
-growth_t_plot_raw <- plot_grid(growth_mean_plot, prop_mean_plot, nrow = 1, align = "vh", labels = "AUTO")
-
-growth_scatter <- ggplot(aug_and_dec, aes(vol_growth_man, vol_growth_pg)) +
-    geom_hline(yintercept = 0, linetype = "dashed") +
-  geom_vline(xintercept = 0, linetype = "dashed") +
-  geom_smooth(method = "lm", color = "lightslategray") +
-   geom_point(size = 3, color = "coral") +
-  labs(x = expression(paste("Manual Ellipse Growth (cm"^{3},")")),
-       y = expression(paste("Photo Model Growth (cm"^{3},")"))) +
+joined_growth_v_vol <- ggplot(december_stacked, aes(volume_aug, growth, color = method)) +
+  geom_smooth(method = "lm", formula = "formula1", fill = "grey92") +
+  geom_point(size = 2) +
+  stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+               label.x.npc = "right", label.y.npc = "bottom",
+               formula = formula1, parse = TRUE, size = 5) +
   theme_classic() +
-  theme(panel.border = element_rect(color = "black", fill = NA, size =2))
+  scale_color_manual(labels = c("Ellipse","Hull", "Photo Model"), values = c("#edae52", "coral", "#9fb059")) +
+  labs(x = expression(paste("Initial Volume (cm"^{3},")")),
+       y = expression(paste("Growth (cm"^{3},")")))
 
-prop_growth_scatter <- ggplot(aug_and_dec, aes(prop_growth_man, prop_growth_pg)) +
-    geom_hline(yintercept = 0, linetype = "dashed") +
-  geom_vline(xintercept = 0, linetype = "dashed") +
-  geom_smooth(method = "lm", color = "lightslategray") +
-   geom_point(size = 3, color = "coral") +
-  labs(x = "% Ellipse Growth", y = "% Photo Model Growth") +
-  theme_classic() +
-  theme(panel.border = element_rect(color = "black", fill = NA, size =2))
+# Try filtering out outlying coral
 
-ggMarginal(growth_scatter, type = "density", fill = "coral", color = "lightslategray")
-ggMarginal(prop_growth_scatter, type = "density", fill = "coral", color = "lightslategray")
+#december_stacked_trim <- december_stacked %>% filter(coral_id != "FE-POC37")
 
-# growth_vs_volume <- 
-growth_v_vol_man <- ggplot(aug_and_dec, aes(volume_est, vol_growth_man)) +
-  geom_point(size = 3, color = "#edae52") +
-  geom_smooth(method = "lm", color = "lightslategray", formula = "formula1") +
-  labs(x = expression(paste("Initial Ellipse Volume (cm"^{3},")")),
-       y = expression(paste("Growth (cm"^{3},")"))) +
-       stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
-               label.x.npc = "right", label.y.npc = "bottom",
-               formula = formula1, parse = TRUE, size = 5) +
-  theme_classic()
+#joined_growth_v_vol_trim <- ggplot(december_stacked_trim, aes(volume_aug, growth, color = method)) +
+#  geom_smooth(method = "lm", formula = "formula1", fill = "grey92") +
+#  geom_point(size = 2) +
+#  stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+#               label.x.npc = "right", label.y.npc = "bottom",
+#               formula = formula1, parse = TRUE, size = 5) +
+#  theme_classic() +
+#  scale_color_manual(labels = c("Ellipse","Hull", "Photo Model"), values = c("#edae52", "coral", "#9fb059")) +
+#  labs(x = expression(paste("Initial Volume (cm"^{3},")")),
+#       y = expression(paste("Growth (cm"^{3},")")))
 
-growth_v_vol_pg <-ggplot(aug_and_dec, aes(vol_pg_aug, vol_growth_pg)) +
-  geom_point(size = 3, color = "#9fb059") +
-  geom_smooth(method = "lm", color = "lightslategray", formula = "formula1") +
-  labs(x = expression(paste("Initial Skeletal Volume (cm"^{3},")")),
-       y = expression(paste("Growth (cm"^{3},")"))) +
-     stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
-               label.x.npc = "right", label.y.npc = "bottom",
-               formula = formula1, parse = TRUE, size = 5) +
-  theme_classic()
 
-prop_v_vol_man <- ggplot(aug_and_dec, aes(volume_est, prop_growth_man)) +
-  geom_point(size = 3, color = "#edae52") +
-  geom_smooth(method = "lm", color = "lightslategray", formula = "formula1") +
-  labs(x = expression(paste("Initial Ellipse Volume (cm"^{3},")")),
-       y = expression(paste("% Growth"))) +
-       stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
-               label.x.npc = "right", label.y.npc = "bottom",
-               formula = formula1, parse = TRUE, size = 5) +
-  theme_classic()
+# joined_prop_v_vol <- ggplot(december_stacked, aes(volume_aug, prop_growth, color = method)) +
+#   geom_point(size = 2) +
+#   geom_smooth(method = "lm", formula = "formula1") +
+#   stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+#                label.x.npc = "right", label.y.npc = "bottom",
+#                formula = formula1, parse = TRUE, size = 5) +
+#   theme_classic() +
+#   scale_color_manual(labels = c("Ellipse","Photo Model"), values = c("#edae52", "#9fb059")) +
+#   labs(x = expression(paste("Initial Volume (cm"^{3},")")),
+#        y = expression(paste("% Growth (cm")))
 
-prop_v_vol_pg <-ggplot(aug_and_dec, aes(vol_pg_aug, prop_growth_pg)) +
-  geom_point(size = 3, color = "#9fb059") +
-  geom_smooth(method = "lm", color = "lightslategray", formula = "formula1") +
-  labs(x = expression(paste("Initial Skeletal Volume (cm"^{3},")")),
-       y = expression(paste("% Growth"))) +
-     stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
-               label.x.npc = "right", label.y.npc = "bottom",
-               formula = formula1, parse = TRUE, size = 5) +
-  theme_classic()
+#growth_v_vol_joined <- plot_grid(joined_growth_v_vol, joined_prop_v_vol, nrow = 2, ncol = 1, labels = "AUTO")
 
-growth_v_vol_raw <- plot_grid(growth_v_vol_man, growth_v_vol_pg, prop_v_vol_man, prop_v_vol_pg,
-          nrow = 2, ncol = 2, align = 'vh', labels = "AUTO")
 
-growth_v_vol_fig <- plot_grid(growth_v_vol_raw, growth_plot_legend, rel_widths = c(6, 1.2),
-                              align = 'v')
+# growth_v_sa_pg <-ggplot(aug_and_dec, aes(sa_aug, vol_growth_pg)) +
+#   geom_point(size = 3, color = "#9fb059") +
+#   geom_smooth(method = "lm", color = "lightslategray", formula = "formula1") +
+#   labs(x = expression(paste("Initial Surface Area (cm"^{2},")")),
+#        y = expression(paste("Growth (cm"^{3},")"))) +
+#      stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+#                label.x.npc = "right", label.y.npc = "bottom",
+#                formula = formula1, parse = TRUE, size = 5) +
+#   theme_classic()
+# 
+# 
+# prop_v_sa_pg <-ggplot(aug_and_dec, aes(sa_aug, prop_growth_pg)) +
+#   geom_point(size = 3, color = "#9fb059") +
+#   geom_smooth(method = "lm", color = "lightslategray", formula = "formula1") +
+#   labs(x = expression(paste("Initial Surface Area (cm"^{2},")")),
+#        y = expression(paste("% Growth"))) +
+#      stat_poly_eq(aes(label = paste(..rr.label.., sep = "~~~")), 
+#                label.x.npc = "right", label.y.npc = "bottom",
+#                formula = formula1, parse = TRUE, size = 5) +
+#   theme_classic()
 
-growth_v_vol_fig
+
+#  plot_grid(growth_v_sa_pg, prop_v_sa_pg) - Looks very similar to volume but weaker relationship
+
 # Table describing means
 # paired t-test for growth
 
 ```
+Mean growth - ellipse: `r mean(manual_dec_trim$growth)` +/- `r sd(manual_dec_trim$growth)`
+
+Mean growth - photo: `r mean(photo_dec_trim$growth)` +/- `r sd(photo_dec_trim$growth)`
+
+Prop growth - ellipse: `r mean(manual_dec_trim$prop_growth)` +/- `r sd(manual_dec_trim$prop_growth)`
+
+Prop growth - photo: `r mean(photo_dec_trim$prop_growth)` +/- `r sd(photo_dec_trim$prop_growth)`
+
+```{r growth_figs_followup, include = TRUE, echo = FALSE, warning = FALSE}
+
+#plot_grid(growth_scatter_a, growth_scatter_b)
+joined_growth_v_vol
+
+```
+
+```{r growth_fig_joined, fig.width = 6, fig.height = 8, include = TRUE, echo = FALSE}
+
+growth_v_vol_joined
+
+```
+
 
 # Preliminary interpretations
 
@@ -662,6 +803,8 @@ richness_hull <- ggplot(cafi_coral, aes(x=max_hull_volume, y=cafi_richness))+
   theme_classic()+
   xlim(c(0,max(coral_dim$max_hull_volume, na.rm = TRUE)+5000)) +
   labs(y="CAFI Richness", x= expression(paste("Photogrammetry Volume (cm"^{3},")")))
+
+cafi_coral <- cafi_coral %>% filter(coral_id != "FE-POC01")
 
 #Volume - plot1 
 volume <- invert_pg + labs(x=expression(paste("Volume (cm"^{3},")"))) +
@@ -1198,3 +1341,4 @@ cafi_morph_tab2b
 cafi_morph_tab3b
 cafi_morph_tab4b
 ```
+
