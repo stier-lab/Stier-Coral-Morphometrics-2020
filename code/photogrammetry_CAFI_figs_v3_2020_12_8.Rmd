@@ -41,6 +41,8 @@ library(ggpmisc)
 library(ggpubr)
 library(ggalt)
 library(ggExtra)
+library(kableExtra)
+library(magick)
 
 conflict_prefer("rename","dplyr")
 conflict_prefer("filter", "dplyr")
@@ -685,7 +687,7 @@ joined_growth_v_vol
 
 ```{r growth_fig_joined, fig.width = 6, fig.height = 8, include = TRUE, echo = FALSE}
 
-growth_v_vol_joined
+joined_growth_v_vol
 
 ```
 
@@ -804,7 +806,7 @@ richness_hull <- ggplot(cafi_coral, aes(x=max_hull_volume, y=cafi_richness))+
   xlim(c(0,max(coral_dim$max_hull_volume, na.rm = TRUE)+5000)) +
   labs(y="CAFI Richness", x= expression(paste("Photogrammetry Volume (cm"^{3},")")))
 
-cafi_coral <- cafi_coral %>% filter(coral_id != "FE-POC01")
+# cafi_coral <- cafi_coral %>% filter(coral_id != "FE-POC01")
 
 #Volume - plot1 
 volume <- invert_pg + labs(x=expression(paste("Volume (cm"^{3},")"))) +
@@ -987,7 +989,25 @@ fig4_fin <- annotate_figure(fig4,
                 left = text_grob("CAFI Abundance", color = "black",
                                    rot = 90, face = "bold", size = 12),
                 fig.lab = "Figure 4", fig.lab.face = "bold")
+options(scipen = 999)
+reg_sum <- function(input2, lm_x) {
+  temp <- data.frame(matrix(ncol = 7))
+  temp_cols <- c("Variable", "Intercept", "Slope", "95% CI", "F", "p", "r2")
+  colnames(temp) <- temp_cols
+  temp$Variable <- paste(input2)
+  temp$Intercept <- signif(lm_x$coefficients[1], 3)
+  temp$Slope <- signif(lm_x$coefficients[2], 3)
+  temp$`95% CI` <- paste(eval(signif(confint(lm_x)[2,1],3)), "-", eval(signif(confint(lm_x)[2,2],3)))
+  temp$"F" <- signif(summary(lm_x)$fstatistic[1],3)
+  temp$"p" <- signif(summary(lm_x)$coefficients[2,4],3)
+  temp$r2 <- signif(summary(lm_x)$r.squared,3)
+  temp
+}
 
+abun_tab <- rbind(reg_sum("Ellipse", lm_invert_field), reg_sum("Convex Hull", lm_invert_hull),
+                  reg_sum("Skeletal Volume", lm_invert_pg), reg_sum("Surface Area", lm_invert_sa),
+                  reg_sum("Convexity", lm_conv), reg_sum("Interstitial Space", lm_interstitial))
+                  
 
 ```
 
@@ -996,82 +1016,82 @@ fig4_fin
 ```
 
 ```{r cafi_morph_regression_table prep, include = FALSE}
-pl_sa <- c(
-  '(Intercept)' = "Intercept",
-  max_hull_volume = "Surface Area")
-pl_sav <- c(
-  '(Intercept)' = "Intercept",
-  max_hull_volume = "Surface Area:Volume")
-pl_hull_sa <- c(
-  '(Intercept)' = "Intercept",
-  max_hull_volume = "Hull Surface Area")
-pl_convexity <- c(
-  '(Intercept)' = "Intercept",
-  max_hull_volume = "Convexity")
-pl_sphericity <- c(
-  '(Intercept)' = "Intercept",
-  max_hull_volume = "Sphericity")
-pl_interstitial <- c(
-  '(Intercept)' = "Intercept",
-  max_hull_volume = "Interstitial Space")
-pl_convexity <- c(
-  '(Intercept)' = "Intercept",
-  max_hull_volume = "Convexity")
-pl_bw <- c(
-  '(Intercept)' = "Intercept",
-  max_hull_volume = "Branch Width")
-pl_length <- c(
-  '(Intercept)' = "Intercept",
-  max_hull_volume = "Length")
-pl_width <- c(
-  '(Intercept)' = "Intercept",
-  max_hull_volume = "Width")
-pl_height <- c(
-  '(Intercept)' = "Intercept",
-  max_hull_volume = "Height")
-
-cafi_morph_tab1 <- tab_model(lm_invert_pg, lm_invert_sa, lm_invert_sav,
-          show.intercept = FALSE,
-          pred.labels = c(pl_volume,pl_sa,pl_sav),
-          string.est = "Slope",
-          string.ci = "Slope CI (95%)",
-          string.p = "p-Value",
-          digits=5,
-          dv.labels = c("Photo Volume vs. Abundance","Surface Area vs. Abundance", "Surface Area:Volume vs. Abundance"))
-
-cafi_morph_tab2 <-tab_model(lm_invert_hull, lm_convex_sa, lm_conv,
-          show.intercept = FALSE,
-          pred.labels = c(pl_hull,pl_hull_sa,pl_convexity),
-          string.est = "Slope",
-          string.ci = "Slope CI (95%)",
-          string.p = "p-Value",
-          digits=5,
-          dv.labels = c("Hull Volume vs. Abundance","Hull Surface Area vs. Abundance", "Convexity vs. Abundance"))
-
-cafi_morph_tab3<- tab_model(lm_sphericity, lm_interstitial, lm_bw,
-          show.intercept = FALSE,
-          pred.labels = c(pl_sphericity,pl_interstitial,pl_bw),
-          string.est = "Slope",
-          string.ci = "Slope CI (95%)",
-          string.p = "p-Value",
-          digits=5,
-          dv.labels = c("Sphericity vs. Abundance","Interstitial Space vs. Abundance", "Branch Width vs. Abundance"))
-
-cafi_morph_tab4 <- tab_model(lm_length, lm_width, lm_height,
-          show.intercept = FALSE,
-          pred.labels = c(pl_length,pl_width,pl_height),
-          string.est = "Slope",
-          string.ci = "Slope CI (95%)",
-          string.p = "p-Value",
-          digits=5,
-          dv.labels = c("Length vs. Abundance","Width vs. Abundance", "Height vs. Abundance"))
+# pl_sa <- c(
+#   '(Intercept)' = "Intercept",
+#   max_hull_volume = "Surface Area")
+# pl_sav <- c(
+#   '(Intercept)' = "Intercept",
+#   max_hull_volume = "Surface Area:Volume")
+# pl_hull_sa <- c(
+#   '(Intercept)' = "Intercept",
+#   max_hull_volume = "Hull Surface Area")
+# pl_convexity <- c(
+#   '(Intercept)' = "Intercept",
+#   max_hull_volume = "Convexity")
+# pl_sphericity <- c(
+#   '(Intercept)' = "Intercept",
+#   max_hull_volume = "Sphericity")
+# pl_interstitial <- c(
+#   '(Intercept)' = "Intercept",
+#   max_hull_volume = "Interstitial Space")
+# pl_convexity <- c(
+#   '(Intercept)' = "Intercept",
+#   max_hull_volume = "Convexity")
+# pl_bw <- c(
+#   '(Intercept)' = "Intercept",
+#   max_hull_volume = "Branch Width")
+# pl_length <- c(
+#   '(Intercept)' = "Intercept",
+#   max_hull_volume = "Length")
+# pl_width <- c(
+#   '(Intercept)' = "Intercept",
+#   max_hull_volume = "Width")
+# pl_height <- c(
+#   '(Intercept)' = "Intercept",
+#   max_hull_volume = "Height")
+# 
+# cafi_morph_tab1 <- tab_model(lm_invert_pg, lm_invert_sa, lm_invert_sav,
+#           show.intercept = FALSE,
+#           pred.labels = c(pl_volume,pl_sa,pl_sav),
+#           string.est = "Slope",
+#           string.ci = "Slope CI (95%)",
+#           string.p = "p-Value",
+#           digits=5,
+#           dv.labels = c("Photo Volume vs. Abundance","Surface Area vs. Abundance", "Surface Area:Volume vs. Abundance"))
+# 
+# cafi_morph_tab2 <-tab_model(lm_invert_hull, lm_convex_sa, lm_conv,
+#           show.intercept = FALSE,
+#           pred.labels = c(pl_hull,pl_hull_sa,pl_convexity),
+#           string.est = "Slope",
+#           string.ci = "Slope CI (95%)",
+#           string.p = "p-Value",
+#           digits=5,
+#           dv.labels = c("Hull Volume vs. Abundance","Hull Surface Area vs. Abundance", "Convexity vs. Abundance"))
+# 
+# cafi_morph_tab3<- tab_model(lm_sphericity, lm_interstitial, lm_bw,
+#           show.intercept = FALSE,
+#           pred.labels = c(pl_sphericity,pl_interstitial,pl_bw),
+#           string.est = "Slope",
+#           string.ci = "Slope CI (95%)",
+#           string.p = "p-Value",
+#           digits=5,
+#           dv.labels = c("Sphericity vs. Abundance","Interstitial Space vs. Abundance", "Branch Width vs. Abundance"))
+# 
+# cafi_morph_tab4 <- tab_model(lm_length, lm_width, lm_height,
+#           show.intercept = FALSE,
+#           pred.labels = c(pl_length,pl_width,pl_height),
+#           string.est = "Slope",
+#           string.ci = "Slope CI (95%)",
+#           string.p = "p-Value",
+#           digits=5,
+#           dv.labels = c("Length vs. Abundance","Width vs. Abundance", "Height vs. Abundance"))
 ```
 
-```{r cafi_morph_tab, include = TRUE, echo = FALSE}
-cafi_morph_tab1
-cafi_morph_tab2
-cafi_morph_tab3
-cafi_morph_tab4
+```{r cafi_morph_tab, include = FALSE, echo = FALSE}
+# cafi_morph_tab1
+# cafi_morph_tab2
+# cafi_morph_tab3
+# cafi_morph_tab4
 ```
 
 ```{r fig4bprep, message=FALSE, include=FALSE}
@@ -1256,6 +1276,10 @@ fig4b_fin <- annotate_figure(fig4b,
                                    rot = 90, face = "bold", size = 12),
                 fig.lab = "Figure 4b", fig.lab.face = "bold")
 
+richness_tab <- rbind(reg_sum("Ellipse", lm_richness_field), reg_sum("Convex Hull", lm_richness_hull),
+                  reg_sum("Skeletal Volume", lm_richness_pg), reg_sum("Surface Area", lm_invert_sa),
+                  reg_sum("Convexity", lm_conv), reg_sum("Interstitial Space", lm_interstitial))
+                  
 
 ```
 
@@ -1264,81 +1288,96 @@ fig4b_fin
 ```
 
 ```{r richness_morph_regression_table prep, include = FALSE}
-pl_sa <- c(
-  '(Intercept)' = "Intercept",
-  max_hull_volume = "Surface Area")
-pl_sav <- c(
-  '(Intercept)' = "Intercept",
-  max_hull_volume = "Surface Area:Volume")
-pl_hull_sa <- c(
-  '(Intercept)' = "Intercept",
-  max_hull_volume = "Hull Surface Area")
-pl_convexity <- c(
-  '(Intercept)' = "Intercept",
-  max_hull_volume = "Convexity")
-pl_sphericity <- c(
-  '(Intercept)' = "Intercept",
-  max_hull_volume = "Sphericity")
-pl_interstitial <- c(
-  '(Intercept)' = "Intercept",
-  max_hull_volume = "Interstitial Space")
-pl_convexity <- c(
-  '(Intercept)' = "Intercept",
-  max_hull_volume = "Convexity")
-pl_bw <- c(
-  '(Intercept)' = "Intercept",
-  max_hull_volume = "Branch Width")
-pl_length <- c(
-  '(Intercept)' = "Intercept",
-  max_hull_volume = "Length")
-pl_width <- c(
-  '(Intercept)' = "Intercept",
-  max_hull_volume = "Width")
-pl_height <- c(
-  '(Intercept)' = "Intercept",
-  max_hull_volume = "Height")
-
-cafi_morph_tab1b <- tab_model(lm_richness_pg, lm_invert_sa, lm_invert_sav,
-          show.intercept = FALSE,
-          pred.labels = c(pl_volume,pl_sa,pl_sav),
-          string.est = "Slope",
-          string.ci = "Slope CI (95%)",
-          string.p = "p-Value",
-          digits=5,
-          dv.labels = c("Photo Volume vs. Richness","Surface Area vs. Richness", "Surface Area:Volume vs. Richness"))
-
-cafi_morph_tab2b <-tab_model(lm_richness_hull, lm_convex_sa, lm_conv,
-          show.intercept = FALSE,
-          pred.labels = c(pl_hull,pl_hull_sa,pl_convexity),
-          string.est = "Slope",
-          string.ci = "Slope CI (95%)",
-          string.p = "p-Value",
-          digits=5,
-          dv.labels = c("Hull Volume vs. Richness","Hull Surface Area vs. Richness", "Convexity vs. Richness"))
-
-cafi_morph_tab3b<- tab_model(lm_sphericity, lm_interstitial, lm_bw,
-          show.intercept = FALSE,
-          pred.labels = c(pl_sphericity,pl_interstitial,pl_bw),
-          string.est = "Slope",
-          string.ci = "Slope CI (95%)",
-          string.p = "p-Value",
-          digits=5,
-          dv.labels = c("Sphericity vs. Richness","Interstitial Space vs. Richness", "Branch Width vs. Richness"))
-
-cafi_morph_tab4b <- tab_model(lm_length, lm_width, lm_height,
-          show.intercept = FALSE,
-          pred.labels = c(pl_length,pl_width,pl_height),
-          string.est = "Slope",
-          string.ci = "Slope CI (95%)",
-          string.p = "p-Value",
-          digits=5,
-          dv.labels = c("Length vs. Richness","Width vs. Richness", "Height vs. Richness"))
+# pl_sa <- c(
+#   '(Intercept)' = "Intercept",
+#   max_hull_volume = "Surface Area")
+# pl_sav <- c(
+#   '(Intercept)' = "Intercept",
+#   max_hull_volume = "Surface Area:Volume")
+# pl_hull_sa <- c(
+#   '(Intercept)' = "Intercept",
+#   max_hull_volume = "Hull Surface Area")
+# pl_convexity <- c(
+#   '(Intercept)' = "Intercept",
+#   max_hull_volume = "Convexity")
+# pl_sphericity <- c(
+#   '(Intercept)' = "Intercept",
+#   max_hull_volume = "Sphericity")
+# pl_interstitial <- c(
+#   '(Intercept)' = "Intercept",
+#   max_hull_volume = "Interstitial Space")
+# pl_convexity <- c(
+#   '(Intercept)' = "Intercept",
+#   max_hull_volume = "Convexity")
+# pl_bw <- c(
+#   '(Intercept)' = "Intercept",
+#   max_hull_volume = "Branch Width")
+# pl_length <- c(
+#   '(Intercept)' = "Intercept",
+#   max_hull_volume = "Length")
+# pl_width <- c(
+#   '(Intercept)' = "Intercept",
+#   max_hull_volume = "Width")
+# pl_height <- c(
+#   '(Intercept)' = "Intercept",
+#   max_hull_volume = "Height")
+# 
+# cafi_morph_tab1b <- tab_model(lm_richness_pg, lm_invert_sa, lm_invert_sav,
+#           show.intercept = FALSE,
+#           pred.labels = c(pl_volume,pl_sa,pl_sav),
+#           string.est = "Slope",
+#           string.ci = "Slope CI (95%)",
+#           string.p = "p-Value",
+#           digits=5,
+#           dv.labels = c("Photo Volume vs. Richness","Surface Area vs. Richness", "Surface Area:Volume vs. Richness"))
+# 
+# cafi_morph_tab2b <-tab_model(lm_richness_hull, lm_convex_sa, lm_conv,
+#           show.intercept = FALSE,
+#           pred.labels = c(pl_hull,pl_hull_sa,pl_convexity),
+#           string.est = "Slope",
+#           string.ci = "Slope CI (95%)",
+#           string.p = "p-Value",
+#           digits=5,
+#           dv.labels = c("Hull Volume vs. Richness","Hull Surface Area vs. Richness", "Convexity vs. Richness"))
+# 
+# cafi_morph_tab3b<- tab_model(lm_sphericity, lm_interstitial, lm_bw,
+#           show.intercept = FALSE,
+#           pred.labels = c(pl_sphericity,pl_interstitial,pl_bw),
+#           string.est = "Slope",
+#           string.ci = "Slope CI (95%)",
+#           string.p = "p-Value",
+#           digits=5,
+#           dv.labels = c("Sphericity vs. Richness","Interstitial Space vs. Richness", "Branch Width vs. Richness"))
+# 
+# cafi_morph_tab4b <- tab_model(lm_length, lm_width, lm_height,
+#           show.intercept = FALSE,
+#           pred.labels = c(pl_length,pl_width,pl_height),
+#           string.est = "Slope",
+#           string.ci = "Slope CI (95%)",
+#           string.p = "p-Value",
+#           digits=5,
+#           dv.labels = c("Length vs. Richness","Width vs. Richness", "Height vs. Richness"))
 ```
 
 ```{r cafi_morph_tab_richness, include = TRUE, echo = FALSE}
-cafi_morph_tab1b
-cafi_morph_tab2b
-cafi_morph_tab3b
-cafi_morph_tab4b
+# cafi_morph_tab1b
+# cafi_morph_tab2b
+# cafi_morph_tab3b
+# cafi_morph_tab4b
 ```
 
+```{r pub_table_prep, include = FALSE}
+tbl_raw <- rbind(abun_tab,richness_tab) %>% 
+  rename("$\\beta$" = Slope, "r$^2$" = r2)
+
+tbl_1 <- kbl(tbl_raw, booktabs = TRUE) %>% 
+  kable_classic() %>% 
+  kable_styling(bootstrap_options = c("striped", "bordered")) %>% 
+  pack_rows("Abundance", 1,6) %>% 
+  pack_rows("Richness", 7,12) %>% 
+  column_spec(6, bold = ifelse(tbl_raw$p < 0.05, "TRUE", "FALSE"))
+```
+
+```{r pub_table, include = TRUE}
+tbl_1
+```
