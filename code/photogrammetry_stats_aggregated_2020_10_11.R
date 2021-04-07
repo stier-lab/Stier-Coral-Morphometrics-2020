@@ -7,6 +7,7 @@ library(vegan)
 library(reshape)
 library(conflicted)
 library(cowplot)
+library(rstatix)
 
 conflict_prefer("rename","dplyr")
 conflict_prefer("filter", "dplyr")
@@ -112,17 +113,34 @@ december_photo$coral_id <- as.character(december_photo$coral_id)
 december_photo <- december_photo %>% filter(coral_id %in% coral_dim$coral_id, volume_pg != "NA")
 
 december_photo$vol_pg_aug <- coral_dim$volume_pg[match(december_photo$coral_id,coral_dim$coral_id)]
+december_photo$sa_aug <-  coral_dim$SA[match(december_photo$coral_id,coral_dim$coral_id)]
 december_photo$vol_hull_aug <- coral_dim$max_hull_volume[match(december_photo$coral_id,coral_dim$coral_id)]
 
 december_photo <- december_photo %>% mutate(volume_pg = volume_pg*10^6, max_hull_volume = max_hull_volume*10^6)
 december_photo <- december_photo %>% mutate(vol_growth_pg = volume_pg - vol_pg_aug,
                                             prop_growth_pg = vol_growth_pg/vol_pg_aug*100,
                                             hull_growth = max_hull_volume - vol_hull_aug,
-                                            prop_hull_growth = hull_growth/vol_hull_aug)
+                                            prop_hull_growth = hull_growth/vol_hull_aug*100)
+
 
 december_manual <- december_manual %>% filter(coral_id %in% december_photo$coral_id) %>%
   mutate(vol_growth_man = volume_est_dec - volume_est) %>% mutate(prop_growth_man = vol_growth_man/volume_est*100)
+
 aug_and_dec <- left_join(december_photo, december_manual, by = "coral_id")
+
+manual_dec_trim <- december_manual %>% select(coral_id, volume = volume_est_dec, volume_aug = volume_est, growth = vol_growth_man, prop_growth = prop_growth_man) %>% mutate(method = "Ellipsoid")
+
+photo_dec_trim <- december_photo %>% select(coral_id, volume = volume_pg, volume_aug = vol_pg_aug, growth = vol_growth_pg, prop_growth = prop_growth_pg) %>% mutate(method = "Skeleton")
+
+photo_hull_trim <- december_photo %>% select(coral_id, volume = max_hull_volume, volume_aug = vol_hull_aug, growth = hull_growth, prop_growth = prop_hull_growth) %>% mutate(method = "Convex Hull")
+
+december_stacked <- rbind(manual_dec_trim,photo_dec_trim, photo_hull_trim) %>% drop_na()
+december_summary_stats <- december_stacked %>% group_by(method) %>% summarize(
+  mean_growth = mean(growth, na.rm = TRUE), mean_prop_growth = mean(prop_growth, na.rm = TRUE),
+  se_vol = sd(growth, na.rm = TRUE)/sqrt(n()), se_prop = sd(prop_growth, na.rm = TRUE)/sqrt(n()))
+
+december_summary_stats$method <- factor(december_summary_stats$method, levels = c("Ellipsoid", "Convex Hull", "Skeleton"))
+december_stacked$method <- factor(december_stacked$method, levels = c("Ellipsoid", "Convex Hull", "Skeleton"))
 
 
 #Cleanup
@@ -168,7 +186,7 @@ cor_prop_growth_man_vs_pg
  
 # T-test: Volume and proportional growth manual vs. photo
 
-t_vol_growth <- t.test(december_manual$vol_growth_man, december_photo$vol_growth_pg, paired = TRUE)
+t_vol_growth <- t.test(december_manual$vol_growth_man, december_photo$vol_growth_pg)
 t_vol_growth
 
 sd(december_manual$vol_growth_man)
@@ -177,6 +195,33 @@ sd(december_photo$hull_growth, na.rm = TRUE)
 
 t_prop_growth <- t.test(december_manual$prop_growth_man, december_photo$prop_growth_pg, paired = TRUE)
 t_prop_growth
+
+t_prop_growth <- t.test(december_manual$prop_growth_man, december_photo$prop_growth_pg, paired = TRUE)
+t_prop_growth
+
+t_prop_growth_hull <- t.test(december_manual$prop_growth_man, december_photo$prop_hull_growth, paired = TRUE)
+t_prop_growth_hull
+
+sd(december_manual$prop_growth_man)
+sd(december_photo$prop_growth_pg)
+sd(december_photo$prop_hull_growth, na.rm = TRUE)
+
+# Welch's ANOVA for growth
+
+december_stacked <- december_stacked %>% filter(coral_id != "FE-POC16", coral_id != "FE-POC56")
+
+growth_anova <- anova_test(data = december_stacked, dv = prop_growth, wid = coral_id, within = method, detailed = TRUE)
+get_anova_table(growth_anova)
+growth_anova <- welch_anova_test(data = december_stacked, formula = prop_growth~method)
+growth_anova <- aov(prop_growth ~ method + Error(coral_id/method), data = december_stacked)
+growth_anova <- ezANOVA(data = december_stacked, dv = prop_growth, wid = coral_id, within = method)
+
+
+growth_lmer <- lmer(prop_growth ~ method + (1|coral_id), data = december_stacked)
+anova(growth_lmer)
+summary(growth_anova)
+
+get_anova_table(growth_anova)
 
 # Regressions of volume vs growth
 
@@ -189,6 +234,17 @@ summary(pg_vol_v_growth)
 
 hull_vol_v_growth <- lm(hull_growth ~ vol_hull_aug, data = december_photo)
 summary(hull_vol_v_growth)
+
+man_vol_v_growth_prop <- lm(prop_growth_man ~ volume_est, data = december_manual)
+summary(man_vol_v_growth_prop)
+
+
+pg_vol_v_growth_prop <- lm(prop_growth_pg ~ vol_pg_aug, data = december_photo)
+summary(pg_vol_v_growth_prop)
+
+hull_vol_v_growth_prop <- lm(prop_hull_growth ~ vol_hull_aug, data = december_photo)
+summary(hull_vol_v_growth_prop)
+
 # Average Model Error
 
 # coral_pg <- coral_pg %>% mutate(scalebar_num = if_else(is.na(coral_pg$scalebar_error_z), 2, 3))
@@ -550,3 +606,16 @@ three_err <- bind_rows(mget(ls()[startsWith(ls(), "size_3")])) %>% mutate(volume
 summary(one_err)
 summary(two_err)
 summary(three_err)
+
+# Length, width, height comparisons
+
+coral_dim <- coral_dim %>% mutate(height_diff = height_pg-height_field, length_diff = length_pg - length_field, width_diff = width_pg - width_field)
+
+summary(coral_dim$width_diff)
+summary(coral_dim$length_diff)
+summary(coral_dim$height_diff)
+
+sd(coral_dim$width_diff)
+sd(coral_dim$length_diff)
+sd(coral_dim$height_diff)
+
