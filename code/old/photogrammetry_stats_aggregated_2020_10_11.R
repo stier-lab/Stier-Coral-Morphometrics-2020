@@ -183,7 +183,7 @@ cor_growth_man_vs_pg
 
 cor_prop_growth_man_vs_pg <- cor.test(december_manual$prop_growth_man, december_photo$prop_growth_pg)
 cor_prop_growth_man_vs_pg
- 
+
 # T-test: Volume and proportional growth manual vs. photo
 
 t_vol_growth <- t.test(december_manual$vol_growth_man, december_photo$vol_growth_pg)
@@ -319,7 +319,7 @@ cafi_coral$resid_diff <- cafi_coral$ellipse_abun_resid - cafi_coral$skel_abun_re
 
 resid_conv_stats <- lm(resid_diff~convexity, data = cafi_coral)
 summary(resid_conv_stats)
-  
+
 formula1 <- y~x
 
 resid_diff_plot <- ggplot(cafi_coral, aes(x=convexity, y = resid_diff))+ 
@@ -458,16 +458,16 @@ size_orig <- coral_dim %>% select(length_field, width_field, height_field)
 #+00
 size_1_1 <- size_orig %>% mutate(length_field = length_field + 1) %>% mutate(volume_calc = ((4/3*pi)*(length_field/2)*(width_field/2)*
                                                                                               (height_field/2))) %>% 
-                          mutate(volume_diff = volume_calc - coral_dim$volume_field) %>% 
-                          mutate(volume_prop = volume_diff/coral_dim$volume_field * 100)
+  mutate(volume_diff = volume_calc - coral_dim$volume_field) %>% 
+  mutate(volume_prop = volume_diff/coral_dim$volume_field * 100)
 #0+0
 size_1_2 <- size_orig %>% mutate(width_field = width_field + 1) %>% mutate(volume_calc = ((4/3*pi)*(length_field/2)*(width_field/2)*
-                                                                                              (height_field/2))) %>% 
+                                                                                            (height_field/2))) %>% 
   mutate(volume_diff = volume_calc - coral_dim$volume_field) %>% 
   mutate(volume_prop = volume_diff/coral_dim$volume_field * 100)
 #00+
 size_1_3 <- size_orig %>% mutate(height_field = height_field + 1) %>% mutate(volume_calc = ((4/3*pi)*(length_field/2)*(width_field/2)*
-                                                                                            (height_field/2))) %>% 
+                                                                                              (height_field/2))) %>% 
   mutate(volume_diff = volume_calc - coral_dim$volume_field) %>% 
   mutate(volume_prop = volume_diff/coral_dim$volume_field * 100)
 #-00
@@ -488,12 +488,12 @@ size_1_6 <- size_orig %>% mutate(height_field = height_field - 1) %>% mutate(vol
 
 #++0
 size_2_1 <- size_orig %>% mutate(length_field = length_field + 1, height_field = height_field + 1) %>% mutate(volume_calc = ((4/3*pi)*(length_field/2)*(width_field/2)*
-                                                                                              (height_field/2))) %>% 
+                                                                                                                               (height_field/2))) %>% 
   mutate(volume_diff = volume_calc - coral_dim$volume_field) %>% 
   mutate(volume_prop = volume_diff/coral_dim$volume_field * 100)
 #+0+
 size_2_2 <- size_orig %>% mutate(length_field = length_field + 1, width_field = width_field + 1) %>% mutate(volume_calc = ((4/3*pi)*(length_field/2)*(width_field/2)*
-                                                                                                                               (height_field/2))) %>% 
+                                                                                                                             (height_field/2))) %>% 
   mutate(volume_diff = volume_calc - coral_dim$volume_field) %>% 
   mutate(volume_prop = volume_diff/coral_dim$volume_field * 100)
 #0++
@@ -519,12 +519,12 @@ size_2_6 <- size_orig %>% mutate(width_field = width_field - 1, height_field = h
 
 #+-0
 size_2_7 <- size_orig %>% mutate(length_field = length_field + 1, width_field = width_field - 1) %>% mutate(volume_calc = ((4/3*pi)*(length_field/2)*(width_field/2)*
-                                                                                                                               (height_field/2))) %>% 
+                                                                                                                             (height_field/2))) %>% 
   mutate(volume_diff = volume_calc - coral_dim$volume_field) %>% 
   mutate(volume_prop = volume_diff/coral_dim$volume_field * 100)
 #+0-
 size_2_8 <- size_orig %>% mutate(length_field = length_field + 1, height_field = height_field - 1) %>% mutate(volume_calc = ((4/3*pi)*(length_field/2)*(width_field/2)*
-                                                                                                                             (height_field/2))) %>% 
+                                                                                                                               (height_field/2))) %>% 
   mutate(volume_diff = volume_calc - coral_dim$volume_field) %>% 
   mutate(volume_prop = volume_diff/coral_dim$volume_field * 100)
 #0-+
@@ -535,13 +535,13 @@ size_2_9 <- size_orig %>% mutate(width_field = width_field - 1, height_field = h
 
 #-0+
 size_2_10 <- size_orig %>% mutate(length_field = length_field - 1, height_field = height_field + 1) %>% mutate(volume_calc = ((4/3*pi)*(length_field/2)*(width_field/2)*
-                                                                                                                             (height_field/2))) %>% 
+                                                                                                                                (height_field/2))) %>% 
   mutate(volume_diff = volume_calc - coral_dim$volume_field) %>% 
   mutate(volume_prop = volume_diff/coral_dim$volume_field * 100)
 
 #0+-
 size_2_11 <- size_orig %>% mutate(width_field = width_field + 1, height_field = height_field - 1) %>% mutate(volume_calc = ((4/3*pi)*(length_field/2)*(width_field/2)*
-                                                                                                                             (height_field/2))) %>% 
+                                                                                                                              (height_field/2))) %>% 
   mutate(volume_diff = volume_calc - coral_dim$volume_field) %>% 
   mutate(volume_prop = volume_diff/coral_dim$volume_field * 100)
 
@@ -553,7 +553,7 @@ size_2_11 <- size_orig %>% mutate(width_field = width_field + 1, length_field = 
 
 # +++
 size_3_1 <- size_orig %>% mutate(length_field = length_field +1, width_field = width_field + 1, height_field = height_field + 1) %>% mutate(volume_calc = ((4/3*pi)*(length_field/2)*(width_field/2)*
-                                                                                                                             (height_field/2))) %>% 
+                                                                                                                                                             (height_field/2))) %>% 
   mutate(volume_diff = volume_calc - coral_dim$volume_field) %>% 
   mutate(volume_prop = volume_diff/coral_dim$volume_field * 100)
 
@@ -618,4 +618,3 @@ summary(coral_dim$height_diff)
 sd(coral_dim$width_diff)
 sd(coral_dim$length_diff)
 sd(coral_dim$height_diff)
-
