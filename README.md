@@ -3,7 +3,12 @@ Coral Morphometrics using Metashape
 
 This project compares traditional field measurements of *Pocillopora* coral heads with 3D models constructed from digital images of the same coral using Agisoft Metashape software. We are interested in (1) creating a workflow utilizing best practices for photo acquistion and photogrammetry models of individual corals (2) compare information gained or lost from photogrammetry vs. in-field manual measurements and (3) the ecological relevance as a predictor for invertebrate communities within the coral. Data was collected in Moorea, French Polynesia on August 2019 for a project funded by the National Science Foundation (NSF).
 
-![Metashape Demo](https://user-images.githubusercontent.com/47797235/113911685-1ac27080-978f-11eb-8c8d-0a9eb21aef5a.mp4)
+
+![3D Model](https://user-images.githubusercontent.com/47797235/113913355-1434f880-9791-11eb-997c-3e649272ce19.jpg)
+
+![Video](https://user-images.githubusercontent.com/47797235/113912330-d683a000-978f-11eb-8f15-ee772025e1ed.mp4)
+
+
 
 *Note*: Project models and photos are stored in a GoogleDrive folder and are available upon request.
 
