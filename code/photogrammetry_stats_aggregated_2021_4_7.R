@@ -8,6 +8,7 @@ library(reshape)
 library(conflicted)
 library(cowplot)
 library(ez)
+library(nls2)
 
 conflict_prefer("rename","dplyr")
 conflict_prefer("filter", "dplyr")
@@ -184,6 +185,20 @@ cor_growth_man_vs_pg
 cor_prop_growth_man_vs_pg <- cor.test(december_manual$prop_growth_man, december_photo$prop_growth_pg)
 cor_prop_growth_man_vs_pg
  
+# Growth Prop ellipse vs hull
+
+cor_test_df <- december_photo %>% inner_join(december_manual, by = "coral_id") %>% select(contains("prop"), coral_id) %>% 
+  filter(prop_hull_growth != "NA")
+
+cor_prop_growth_hull_vs_pg <- cor.test(cor_test_df$prop_hull_growth, cor_test_df$prop_growth_pg)
+cor_prop_growth_hull_vs_pg
+
+
+# Growth Prop hull vs skeleton
+
+cor_prop_growth_man_vs_hull <- cor.test(cor_test_df$prop_growth_man, cor_test_df$prop_hull_growth)
+cor_prop_growth_man_vs_hull
+
 # T-test: Volume and proportional growth manual vs. photo
 
 t_vol_growth <- t.test(december_manual$vol_growth_man, december_photo$vol_growth_pg)
@@ -252,3 +267,92 @@ sd(coral_dim$width_diff)
 sd(coral_dim$length_diff)
 sd(coral_dim$height_diff)
 
+
+## AIC Analysis
+
+# Abun v Ellipsoid
+
+lm_abun_man <- lm(num_cafi~volume_field, data = cafi_coral)
+nls_abun_man <- nls(num_cafi ~ a*volume_field^beta, cafi_coral, start = list(a = 1.35, beta = 0.32))
+summary(nls_abun_man)
+
+aic_abun_man <- AIC(lm_abun_man,nls_abun_man)
+
+# Abun v Skeleton
+
+lm_abun_skel <- lm(num_cafi~volume_pg, data = cafi_coral)
+nls_abun_skel <- nls(num_cafi ~ a*volume_pg^beta, cafi_coral, start = list(a = 1, beta = 1))
+summary(nls_abun_skel)
+
+aic_abun_skel <- AIC(lm_abun_skel,nls_abun_skel)
+
+# Rich v Ellipsoid
+
+lm_rich_man <- lm(cafi_richness~volume_field, data = cafi_coral)
+nls_rich_man <- nls(cafi_richness ~ a*volume_field^beta, cafi_coral, start = list(a = 1, beta = 1))
+
+aic_rich_man <- AIC(lm_rich_man,nls_rich_man)
+
+# Rich v Skeleton
+
+lm_rich_skel <- lm(cafi_richness~volume_pg, data = cafi_coral)
+nls_rich_skel <- nls(cafi_richness ~ a*volume_pg^beta, cafi_coral, start = list(a = 1, beta = 1))
+
+aic_rich_skel <- AIC(lm_rich_skel,nls_rich_skel)
+
+# Rich v Hull
+
+lm_rich_hull <- lm(cafi_richness~max_hull_volume, data = cafi_coral)
+nls_rich_hull <- nls(cafi_richness ~ a*max_hull_volume^beta, cafi_coral, start = list(a = 1, beta = 1))
+
+aic_rich_hull <- AIC(lm_rich_hull,nls_rich_hull)
+
+# Abun v Hull
+
+lm_abun_hull <- lm(num_cafi~max_hull_volume, data = cafi_coral)
+nls_abun_hull <- nls(num_cafi ~ a*max_hull_volume^beta, cafi_coral, start = list(a = 1, beta = 1))
+
+aic_abun_hull <- AIC(lm_abun_hull,nls_abun_hull)
+
+# RMSE values
+
+qpcR::RMSE(nls_abun_man)
+qpcR::RMSE(nls_abun_skel)
+qpcR::RMSE(nls_abun_hull)
+qpcR::RMSE(nls_rich_man)
+qpcR::RMSE(nls_rich_skel)
+qpcR::RMSE(nls_rich_hull)
+
+confint(nls_abun_man, level = 0.95)
+
+nonnest2::vuongtest(nls_abun_hull, nls_abun_skel)
+
+# Table test
+
+reg_sum <- function(input2, nls_x) {
+  temp <- data.frame(matrix(ncol = 11))
+  temp_cols <- c("Variable", "a", "SE(a)", "t(a)", "p(a)", "b", "SE(b)", "t(b)", "p(b)", "AIC","RMSE")
+  colnames(temp) <- temp_cols
+  temp$Variable <- paste(input2)
+  temp$a <- signif(as.numeric(coefficients(nls_x)[1]),3)
+  temp$"SE(a)" <- signif(summary(nls_x)$coefficients[1,2],3)
+  temp$"t(a)" <- signif(summary(nls_x)$coefficients[1,3],3)
+  temp$"p(a)" <- signif(summary(nls_x)$coefficients[1,4],3)
+  temp$b <- signif(as.numeric(coefficients(nls_x)[2]),3)
+  temp$"SE(b)" <- signif(summary(nls_x)$coefficients[2,2],3)
+  temp$"t(b)" <- signif(summary(nls_x)$coefficients[2,3],3)
+  temp$"p(b)" <- signif(summary(nls_x)$coefficients[2,4],3)
+  temp$AIC <- AIC(nls_x)
+  temp$RMSE <- qpcR::RMSE(nls_x)
+  temp
+}
+
+test <- reg_sum("Hull", nls_abun_hull)
+
+nls_abun_man$coefficients
+summary(nls_abun_man)
+coefficients(nls_abun_hull)
+
+signif(coefficients(nls_abun_man[1]),3)
+
+signif(as.numeric(coefficients(nls_abun_man)[1]),3)
