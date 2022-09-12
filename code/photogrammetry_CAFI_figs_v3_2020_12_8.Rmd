@@ -214,7 +214,7 @@ width <- ggplot(coral_dim, aes(x=width_pg, y=width_field))+
 fig1 <- cowplot::plot_grid(convex, length, width, height, ncol = 2, nrow = 2, 
           align = "vh", labels = "AUTO")
 
-ggsave(here("code","figures","precision_comparison.pdf"), fig1, device = "pdf", useDingbats = FALSE, width = 10, height = 7)
+# ggsave(here("code","figures","precision_comparison.pdf"), fig1, device = "pdf", useDingbats = FALSE, width = 10, height = 7)
 
 ```
   
@@ -313,7 +313,7 @@ richness_hull <- ggplot(cafi_coral, aes(x=max_hull_volume, y=cafi_richness))+
 
 fig2_raw <- plot_grid(invert_field, invert_hull, invert_pg, richness_field, richness_hull, richness_pg, nrow = 2, ncol = 3, align = "vh", labels = "AUTO")
 
-ggsave(here("code","figures","man_vs_photo_cafi.pdf"), fig2_raw, device = "pdf", useDingbats = FALSE, width = 9, height = 5)
+# ggsave(here("code","figures","man_vs_photo_cafi.pdf"), fig2_raw, device = "pdf", useDingbats = FALSE, width = 9, height = 5)
 ```
 
 ```{r fig3, fig.width = 9, fig.height = 6, message=FALSE, echo = FALSE}
@@ -407,9 +407,9 @@ prop_growth_v_vol <- ggplot(december_stacked, aes(volume_aug, prop_growth, color
   theme(aspect.ratio = 1/3, text = element_text(size = 13)) +
   facet_wrap(~method, scales  = "free_x", ncol = 1)
 
-ggsave(here("code","figures","prop_growth_boxplot.pdf"), prop_mean_plot, device = "pdf", useDingbats = FALSE, height = 4, width = 5)
-ggsave(here("code","figures","growth_vs_volume.pdf"), joined_growth_v_vol, device = "pdf", useDingbats = FALSE, height = 4, width = 6)
-ggsave(here("code","figures","joined_growth_vs_volume_prop.pdf"), prop_growth_v_vol, device = "pdf", useDingbats = FALSE, height = 4, width = 6)
+# ggsave(here("code","figures","prop_growth_boxplot.pdf"), prop_mean_plot, device = "pdf", useDingbats = FALSE, height = 4, width = 5)
+# ggsave(here("code","figures","growth_vs_volume.pdf"), joined_growth_v_vol, device = "pdf", useDingbats = FALSE, height = 4, width = 6)
+# ggsave(here("code","figures","joined_growth_vs_volume_prop.pdf"), prop_growth_v_vol, device = "pdf", useDingbats = FALSE, height = 4, width = 6)
 
 prop_growth_v_vol_ellipsoid <- ggplot(aug_and_dec, aes(volume_est, prop_growth_man)) +
   geom_smooth(method = "lm", formula = "formula1", color = "#edae52", fill = "#edae52", size = 1.5) +
@@ -451,7 +451,7 @@ sep_prop_growth_vol <- plot_grid(prop_growth_v_vol_ellipsoid, prop_growth_v_vol_
                                     align = 'vh', nrow = 1, ncol = 3, labels = "AUTO")
 
 
-ggsave(here("code","figures","sep_growth_vs_volume_prop.pdf"), sep_prop_growth_vol, device = "pdf", useDingbats = FALSE, height = 3, width = 9)
+# ggsave(here("code","figures","sep_growth_vs_volume_prop.pdf"), sep_prop_growth_vol, device = "pdf", useDingbats = FALSE, height = 3, width = 9)
 
 ```
 
@@ -584,7 +584,7 @@ convex_resid <- ggplot(cafi_coral, aes(x=convexity, y = ellipse_abun_resid))+
   theme(text = element_text(size = 13))
 
 
-ggsave(here("code","figures","residual_plot.pdf"), convex_resid, device = "pdf", useDingbats = FALSE, height = 4, width = 6)
+# ggsave(here("code","figures","residual_plot.pdf"), convex_resid, device = "pdf", useDingbats = FALSE, height = 4, width = 6)
 
 lm_resid <- lm(ellipse_abun_resid~convexity, data = cafi_coral)
 summary(lm_resid)
