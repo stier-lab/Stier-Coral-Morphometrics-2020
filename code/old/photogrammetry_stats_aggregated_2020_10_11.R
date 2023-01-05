@@ -32,12 +32,12 @@ updated_cafi2 <- updated_cafi %>% filter(str_detect(coral_id, "^FE")) %>%
 
 cafi_summarized2 <- group_by(updated_cafi2, coral_id) %>%
   summarise(num_cafi = n(), cafi_richness = length(unique(code)), cafi_present = paste(sort(unique(code)), collapse = ";"))
-cafi_summarized2$sw <- updated_cafi2 %>% 
-  count(code, coral_id = coral_id) %>% 
-  spread(code,n) %>% 
-  mutate_all(list(~tidyr::replace_na(.,0))) %>% 
-  select(-coral_id) %>% 
-  diversity(index = "shannon")
+# cafi_summarized2$sw <- updated_cafi2 %>% 
+#   count(code, coral_id = coral_id) %>% 
+#   spread(code,n) %>% 
+#   mutate_all(list(~tidyr::replace_na(.,0))) %>% 
+#   select(-coral_id) %>% 
+#   diversity(index = "shannon")
 
 # Clean field data
 coral_field2 <- coral_field %>%
@@ -213,7 +213,7 @@ december_stacked <- december_stacked %>% filter(coral_id != "FE-POC16", coral_id
 growth_anova <- anova_test(data = december_stacked, dv = prop_growth, wid = coral_id, within = method, detailed = TRUE)
 get_anova_table(growth_anova)
 growth_anova <- welch_anova_test(data = december_stacked, formula = prop_growth~method)
-growth_anova <- aov(prop_growth ~ method + Error(coral_id/method), data = december_stacked)
+growth_anova <- aov(prop_growth ~ method , data = december_stacked)
 growth_anova <- ezANOVA(data = december_stacked, dv = prop_growth, wid = coral_id, within = method)
 
 
