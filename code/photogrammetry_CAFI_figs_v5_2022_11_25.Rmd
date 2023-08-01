@@ -3,11 +3,10 @@ output:
   html_document: default
   pdf_document: default
 ---
+
 # Title: "Figures for Photogrammetry-CAFI manuscript"
-author: "Joseph Curtis (modifying code by Journ Galvan)"
-date: "9/8/2020"
-output: html_document
----
+
+author: "Joseph Curtis (modifying code by Journ Galvan)" date: "9/8/2020" output: html_document ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -30,9 +29,10 @@ library(investr)
 source(here("code/source_data_cleanup_2022_11_25.R"))
 ```
 
+# Supplementary Figure 2 - Linear regressions of Manual and Photogrammetric coral measurements
 
-```{r supp_fig1_creator, message=FALSE, include = FALSE}
-#SUPPLEMENTAL FIGURE 1
+```{r supp_fig2_creator, message=FALSE, include = FALSE}
+#SUPPLEMENTAL FIGURE 2
 
 
 #Volume - Convex Hull vs ellipsoid
@@ -100,12 +100,11 @@ figs2 <- cowplot::plot_grid(length, width, height, ellipsoid_pg, ncol = 2, nrow 
 ggsave(here("code","figures","cr_rev2_figs2.pdf"), figs2, device = "pdf", useDingbats = FALSE, width = 10, height = 7)
 
 ```
-  
-```{r fig1, fig.width = 9, fig.height = 6, message=FALSE, echo = FALSE}
+
+```{r figs2, fig.width = 9, fig.height = 6, message=FALSE, echo = FALSE}
 figs2
 ```
-
-
+# Figure 2 - Coral volume estimates vs. CAFI richness and diversity
 ```{r fig2 prep, include=FALSE, include=FALSE}
 
 lm_abun_man <- lm(num_cafi~volume_field, data = cafi_coral)
@@ -150,6 +149,7 @@ nls_rich_pgell <- nls(cafi_richness ~ a*ellipsoid_pg^beta, cafi_coral, start = l
 
 formula1 <- y~a*x^beta
 
+# Plot confidence intervals around regression
 plot_man_abun <- as.data.frame(predFit(nls_abun_man, interval = "confidence", level = 0.95)) %>% cbind(cafi_coral)
 plot_pgell_abun <- as.data.frame(predFit(nls_abun_pgell, interval = "confidence", level = 0.95)) %>% cbind(cafi_coral)
 plot_skel_abun <- as.data.frame(predFit(nls_abun_skel, interval = "confidence", level = 0.95)) %>% cbind(cafi_coral)
@@ -160,8 +160,6 @@ plot_skel_rich <- as.data.frame(predFit(nls_rich_skel, interval = "confidence", 
 plot_hull_rich <- as.data.frame(predFit(nls_rich_hull, interval = "confidence", level = 0.95)) %>% cbind(cafi_coral)
 
 
-
-# cafi_coral <- cafi_coral %>% filter(coral_id != "FE-POC01") # Can be used to take out "outlier" from CAFI plots
 #Plot invert abundance to  volume
 invert_field <- ggplot(plot_man_abun, aes(x=volume_field, y=num_cafi)) + 
   geom_smooth(method = "nls", formula = formula1, method.args = list(start = list(a = 1, beta = 1)), se = FALSE, color = "#edae52", fill = "#edae52") +
@@ -253,7 +251,7 @@ richness_hull <- ggplot(plot_hull_rich, aes(x=max_hull_volume, y=cafi_richness))
   theme(axis.text = element_text(size = 12.5), axis.title = element_text(size = 15),
         axis.title.y = element_blank())
 
-
+# Bind plots
 fig2_raw <- plot_grid(invert_field, invert_pgell, invert_hull, invert_pg, 
                       richness_field, richness_pgell, richness_hull, richness_pg, nrow = 2, ncol = 4, align = "vh", labels = "AUTO")
 
@@ -263,9 +261,8 @@ ggsave(here("code","figures","cr_rev2_fig2.pdf"), fig2_raw, device = "pdf", useD
 ```{r fig2, fig.width = 9, fig.height = 6, message=FALSE, echo = FALSE}
 fig2_raw
 ```
-
-
-``` {r fig1, include = TRUE, echo = FALSE}
+# Figure 1 - Proportional Growth estimates from different volume metrics
+```{r fig1, include = TRUE, echo = FALSE}
 
 # Growth Mean Plots
 
@@ -288,7 +285,8 @@ prop_mean_plot <-
  ggsave(here("code","figures","cr_rev2_fig1.pdf"), prop_mean_plot, device = "pdf", useDingbats = FALSE, height = 6, width = 5)
 ```
 
-``` {r figs3, include = FALSE, echo = FALSE}
+# Supplementary Figure 3 - Growth vs. coral volume allometry
+```{r figs3, include = FALSE, echo = FALSE}
 
 formula1 <- y~x
 
@@ -311,9 +309,8 @@ prop_growth_v_vol <- ggplot(december_stacked, aes(volume_aug, prop_growth, color
 ggsave(here("code","figures","cr_rev2_figs3.pdf"), prop_growth_v_vol, device = "pdf", useDingbats = FALSE, height = 6, width = 6)
 
 ```
-
-
-```{r tab_1_prep, message=FALSE, include=FALSE}
+# Supp. Table 1 - Photogrammetric and manual correlations of size and growth
+```{r tab_s1_prep, message=FALSE, include=FALSE}
 
 options(scipen = 999)
 cor_sum <- function(input2, input3, cor_x) {
@@ -431,6 +428,7 @@ save_kable(tbl_s1, here("code/figures/table_s1.html"))
 
 ```
 
+# Supp. Table 2 - Statistics of CAFI abundance and richness against coral volume estimates
 ```{r tab_2_prep, message=FALSE, include=FALSE}
 
 options(scipen = 999)
@@ -468,7 +466,6 @@ richness_tab <- rbind(reg_sum("Ellipsoid", "Manual", nls_rich_man),
 
 ```
 
-
 ```{r pub_table_prep, include = FALSE}
 
 tbl_raw <- rbind(abun_tab,richness_tab)
@@ -491,3 +488,11 @@ save_kable(tbl_s2, here("code/figures/table_s2.html"))
 ```{r pub_table, include = TRUE}
 tbl_s2
 ```
+# Miscellaneous Statistics
+
+```{r stats}
+num_photos <- summary(c(coral_dim$total_photos, december_photo$total_photos))
+num_photos
+
+```
+

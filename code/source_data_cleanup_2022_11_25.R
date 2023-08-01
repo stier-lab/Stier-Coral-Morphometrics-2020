@@ -101,8 +101,6 @@ coral_dim$prop_est <- (coral_dim$volume_field - coral_dim$volume_pg)/coral_dim$v
 coral_dim <- coral_dim %>% select(-"use", -position, -photos_not_aligned, -measurements, -locations) %>% 
   rename(notes_pg = notes.x, notes_field = notes.y)
 
-# Undid filtering of removal corals only.. may need to reintroduce step at some later point
-
 coral_dim$branch_conv <- ifelse(coral_dim$convexity>=0.5, "tight","wide") #classifies wide and tight branching coral based on convexity
 
 # Merge coral and CAFI data
@@ -124,30 +122,31 @@ december_photo <- december_photo %>% mutate(length_pg_temp = if_else(length_pg >
   select(-length_pg, -width_pg) %>%
   rename(length_pg = length_pg_temp, width_pg = width_pg_temp)
 
-
-december_photo$vol_pg_aug <- coral_dim$volume_pg[match(december_photo$coral_id,coral_dim$coral_id)]
-december_photo$sa_aug <-  coral_dim$SA[match(december_photo$coral_id,coral_dim$coral_id)]
-december_photo$vol_hull_aug <- coral_dim$max_hull_volume[match(december_photo$coral_id,coral_dim$coral_id)]
-december_photo$pg_ellipse_aug <- coral_dim$ellipsoid_pg[match(december_photo$coral_id,coral_dim$coral_id)]
-december_photo$length_aug <- coral_dim$length_pg[match(december_photo$coral_id,coral_dim$coral_id)]
-december_photo$width_aug <- coral_dim$width_pg[match(december_photo$coral_id,coral_dim$coral_id)]
-december_photo$height_aug <- coral_dim$height_pg[match(december_photo$coral_id,coral_dim$coral_id)]
+# Add August (initial) data to December DF
+december_photo$vol_pg_aug <- coral_dim$volume_pg[match(december_photo$coral_id,coral_dim$coral_id)] # Photogrammetry volume
+december_photo$sa_aug <-  coral_dim$SA[match(december_photo$coral_id,coral_dim$coral_id)] # PG surface area
+december_photo$vol_hull_aug <- coral_dim$max_hull_volume[match(december_photo$coral_id,coral_dim$coral_id)] # Convex Hull
+december_photo$pg_ellipse_aug <- coral_dim$ellipsoid_pg[match(december_photo$coral_id,coral_dim$coral_id)] # Photogrammetry ellipsoid volume
+december_photo$length_aug <- coral_dim$length_pg[match(december_photo$coral_id,coral_dim$coral_id)] # PG length
+december_photo$width_aug <- coral_dim$width_pg[match(december_photo$coral_id,coral_dim$coral_id)] # PG width
+december_photo$height_aug <- coral_dim$height_pg[match(december_photo$coral_id,coral_dim$coral_id)] # PG height
 
 december_photo <- december_photo %>% mutate(volume_pg = volume_pg*10^6, max_hull_volume = max_hull_volume*10^6,
-                                            ellipsoid_pg = 4/3*pi*(height_pg/2)*(length_pg/2)*(width_pg/2))
+                                            ellipsoid_pg = 4/3*pi*(height_pg/2)*(length_pg/2)*(width_pg/2)) # Unit conversion, december PG ellipsoid calculation
 december_photo <- december_photo %>% mutate(vol_growth_pg = volume_pg - vol_pg_aug,
                                             prop_growth_pg = vol_growth_pg/vol_pg_aug*100,
                                             hull_growth = max_hull_volume - vol_hull_aug,
                                             prop_hull_growth = hull_growth/vol_hull_aug*100,
                                             ellipsoid_growth_pg = ellipsoid_pg - pg_ellipse_aug,
-                                            prop_ellipsoid_growth_pg = ellipsoid_growth_pg/pg_ellipse_aug*100)
+                                            prop_ellipsoid_growth_pg = ellipsoid_growth_pg/pg_ellipse_aug*100) # Proportional hull, volume, and ellipsoid growth calculations
 
 
 december_manual <- december_manual %>% filter(coral_id %in% december_photo$coral_id) %>%
-  mutate(vol_growth_man = volume_est_dec - volume_est) %>% mutate(prop_growth_man = vol_growth_man/volume_est*100)
+  mutate(vol_growth_man = volume_est_dec - volume_est) %>% mutate(prop_growth_man = vol_growth_man/volume_est*100) # Growth calculations
 
 aug_and_dec <- left_join(december_photo, december_manual, by = "coral_id")
 
+# Create stacked data frame for visualization of growth estimates by method
 manual_dec_trim <- december_manual %>% select(coral_id, volume = volume_est_dec, volume_aug = volume_est, growth = vol_growth_man, prop_growth = prop_growth_man) %>% mutate(method = "Ellipsoid")
 
 photo_dec_trim <- december_photo %>% select(coral_id, volume = volume_pg, volume_aug = vol_pg_aug, growth = vol_growth_pg, prop_growth = prop_growth_pg) %>% mutate(method = "Skeleton")
@@ -158,6 +157,7 @@ ellipsoid_pg_trim <- december_photo %>% select(coral_id, volume = ellipsoid_pg, 
 
 december_stacked <- rbind(manual_dec_trim, ellipsoid_pg_trim, photo_hull_trim, photo_dec_trim) %>% drop_na()
 
+# Create summary data frame for visualization of growth estimates by method
 december_summary_stats <- december_stacked %>% group_by(method) %>% summarize(
   mean_growth = mean(growth, na.rm = TRUE), mean_prop_growth = mean(prop_growth, na.rm = TRUE),
   se_vol = sd(growth, na.rm = TRUE)/sqrt(n()), se_prop = sd(prop_growth, na.rm = TRUE)/sqrt(n()))
