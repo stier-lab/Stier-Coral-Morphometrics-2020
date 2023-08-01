@@ -1,90 +1,59 @@
----
-editor_options: 
-  markdown: 
-    wrap: 72
----
-
 # Stier-Coral-Morphometrics-2020
 
 Coral Morphometrics using Metashape
 
-This repository contains files that supported analysis for Curtis et al.
-(2023), "3D photogrammetry improves measurement of growth and
-biodiversity patterns in branching corals", now published in *Coral
-Reefs* (<https://doi.org/10.1007/s00338-023-02367-7>)
+This repository contains files that supported analysis for Curtis et al. (2023), "3D photogrammetry improves measurement of growth and biodiversity patterns in branching corals", now published in *Coral Reefs* (<https://doi.org/10.1007/s00338-023-02367-7>)
 
-This project compares traditional field measurements of *Pocillopora*
-coral heads with 3D models constructed from digital images of the same
-coral using Agisoft Metashape software. We are interested in (1)
-creating a workflow utilizing best practices for photo acquistion and
-photogrammetry models of individual corals (2) comparing information
-gained or lost from photogrammetry vs. in-field manual measurements and
-(3) the ecological relevance of using photogrammetric measurements as a
-predictor for invertebrate communities within the coral. Data was
-collected in Moorea, French Polynesia on August 2019 for a project
-funded by the National Science Foundation (NSF).
+This project compares traditional field measurements of *Pocillopora* coral heads with 3D models constructed from digital images of the same coral using Agisoft Metashape software. We are interested in (1) creating a workflow utilizing best practices for photo acquistion and photogrammetry models of individual corals (2) comparing information gained or lost from photogrammetry vs. in-field manual measurements and (3) the ecological relevance of using photogrammetric measurements as a predictor for invertebrate communities within the coral. Data was collected in Moorea, French Polynesia on August 2019 for a project funded by the National Science Foundation (NSF).
 
-![3D
-Model](https://user-images.githubusercontent.com/47797235/113913355-1434f880-9791-11eb-997c-3e649272ce19.jpg)
+![3D Model](https://user-images.githubusercontent.com/47797235/113913355-1434f880-9791-11eb-997c-3e649272ce19.jpg)
 
 ![Video](https://user-images.githubusercontent.com/47797235/113912330-d683a000-978f-11eb-8f15-ee772025e1ed.mp4)
 
-*Note*: Project models and photos are stored in a Google Drive folder
-and are available upon request.
+*Note*: Project models and photos are stored in a Google Drive folder and are available upon request.
 
-This repository was updated following publication (August 2, 2023) and
-is no longer actively maintained. For requests regarding this
-repository, please contact Joseph Curtis (University of Otago) or Dr.
-Adrian Stier (UCSB)
+This repository was updated following publication (August 2, 2023) and is no longer actively maintained. For requests regarding this repository, please contact Joseph Curtis (University of Otago) or Dr. Adrian Stier (UCSB)
 
 # Morphometric Data
 
-*/morphometric_data* Folder containing coral photogrammetry and field
-data file name \| description ---\|----------- branchwidth_data.csv \|
-Measurements of distances between coral branches including the average
-distance for each coral photogrammetry_data_v3_2020_9_10.csv \|
-Photogrammetric measurements from colonies imaged in August 2019
-field_experiment_colony_measurements_moorea_summer2019.csv \|
-Measurements taken in the field in August 2019
-field_experiment_colony_measurements_moorea_december2019_v2.csv \|
-Measurements taken in the field in December
-maatea_experiment_photo_measurements_december_JC_2020_7_8.csv \|
-Photogrammetric measurements from colonies imaged in December 2019
+*/morphometric_data* Folder containing coral photogrammetry and field data
+
+| file name                                                       | description                                                                                    |
+|---------------------------------|---------------------------------------|
+| branchwidth_data.csv                                            | Measurements of distances between coral branches including the average distance for each coral |
+| photogrammetry_data_v3_2020_9_10.csv                            | Photogrammetric measurements from colonies imaged in August 2019                               |
+| field_experiment_colony_measurements_moorea_summer2019.csv      | Measurements taken in the field in August 2019                                                 |
+| field_experiment_colony_measurements_moorea_december2019_v2.csv | Measurements taken in the field in December                                                    |
+| maatea_experiment_photo_measurements_december_JC_2020_7_8.csv   | Photogrammetric measurements from colonies imaged in December 2019                             |
 
 # CAFI Data
 
-*/cafi_data* Folder containing coral associated fish and invertebrate
-data file name \| description ---\|-----------
-cafi_data_w_taxonomy_summer2019_2020_5_21.csv \| contains most up to
-date and thorough taxonomy data
+*/cafi_data* Folder containing coral associated fish and invertebrate data
+
+| file name                                     | description                                         |
+|---------------------------------|---------------------------------------|
+| cafi_data_w_taxonomy_summer2019_2020_5_21.csv | contains most up to date and thorough taxonomy data |
 
 # Code
 
-*/code* file name \| description ---\|-----------
-photogrammetry_CAFI_figs_v5_2022_11_25.Rmd \| Code for figures and stats analysis comparing
-photogrammetry and traditional measurements used in publication
+*/code*
 
-photogrammetry_stats_aggregated_final_2023.R \| Additional statistical
-analyses comparing photogrammetry and traditional measurements used in
-publication
-
-source_data_cleanup_2022_11_25.R \| Data tidying and management prior to use for figure creation and statistical analysis
-
-/figures \| Subfolder with figures generated by "photogrammetry_CAFI_figs_v5_2022_11_25.Rmd", formatting may slightly differ from published versions
-
-/old \| Subfolder with files used for older visualizations and analyses of these data. File paths and code may not work following updates to source
+| file name                                    | description                                                                                                                                 |
+|---------------------------------|---------------------------------------|
+| photogrammetry_CAFI_figs_v5_2022_11_25.Rmd   | Code for figures and stats analysis comparing photogrammetry and traditional measurements used in publication                               |
+| photogrammetry_stats_aggregated_final_2023.R | Additional statistical analyses comparing photogrammetry and traditional measurements used in publication                                   |
+| source_data_cleanup_2022_11_25.R             | Data tidying and management prior to use for figure creation and statistical analysis                                                       |
+| /figures                                     | Subfolder with figures generated by "photogrammetry_CAFI_figs_v5_2022_11_25.Rmd", formatting may slightly differ from published versions    |
+| /old                                         | Subfolder with files used for older visualizations and analyses of these data. File paths and code may not work following updates to source |
 
 # Notes
 
-*/notes* file name \| description ---\|-----------
-ORL_Photogrammetry_Protocol_Working.docx \| Detailed manual explaining
-methodology and process for generating photogrammetric measurements from
-still images using Metashape
+*/notes*
+
+| file name                                | description                                                                                                                      |
+|-----------------|------------------------------------------------------|
+| ORL_Photogrammetry_Protocol_Working.docx | Detailed manual explaining methodology and process for generating photogrammetric measurements from still images using Metashape |
 
 # Python Code for Batch Analysis in Metashape
 
-Matthew Gottleib, a UCSB alumni, developed Python code for the Ocean
-Recoveries lab that can facilitate photogrammetry processing of multiple
-files by enabling Alignment and 3D model creation of batches of files
-without user input. Those files are stored and maintained on Matthew's
-GitHub: <https://github.com/Mgla96/OceanRecoveryLabScripts>
+Matthew Gottleib, a UCSB alumni, developed Python code for the Ocean Recoveries lab that can facilitate photogrammetry processing of multiple files by enabling Alignment and 3D model creation of batches of files without user input. Those files are stored and maintained on Matthew's GitHub: <https://github.com/Mgla96/OceanRecoveryLabScripts>
