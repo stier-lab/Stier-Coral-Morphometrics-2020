@@ -32,7 +32,7 @@ This repository was updated following publication (August 2, 2023) and is no lon
 
 | file name                                     | description                                         |
 |---------------------------------|---------------------------------------|
-| cafi_data_w_taxonomy_summer2019_2020_5_21.csv | contains most up to date and thorough taxonomy data |
+| cafi_data_w_taxonomy_summer2019_2020_5_21_final.csv | contains most up to date and thorough taxonomy data |
 
 # Code
 
