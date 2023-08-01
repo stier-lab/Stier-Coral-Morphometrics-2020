@@ -18,16 +18,16 @@ conflict_prefer("get_legend", "cowplot")
 
 
 # Load data 
-branch_width <- read.csv(here("morphometric_data","branchwidth_data.csv")) 
-coral_pg <- read.csv(here("morphometric_data","photogrammetry_data_v3_2020_9_10.csv")) 
+branch_width <- read.csv(here("morphometric_data","branchwidth_data.csv")) # Not used in final analyses
+coral_pg <- read.csv(here("morphometric_data","photogrammetry_data_v3_2020_9_10_final.csv")) 
 coral_field <- read.csv(here("morphometric_data","field_experiment_colony_measurements_moorea_summer2019.csv"))
-updated_cafi <- read.csv(here("cafi_data","cafi_data_w_taxonomy_summer2019_2020_5_21.csv"))
+updated_cafi <- read.csv(here("cafi_data","cafi_data_w_taxonomy_summer2019_2020_5_21_final.csv"))
 
 # Data Preparation and Cleaning
 
 # CAFI data
 updated_cafi2 <- updated_cafi %>% filter(str_detect(coral_id, "^FE")) %>%
-  select(master_sort, coral_id, code, type, search_term, lowest_level, phylum, genus, species, general_notes)
+  select(coral_id, code, type, search_term, lowest_level, phylum, genus, species, general_notes)
 
 # Calculate CAFI richness, abundance, and diversity (shannon weiner) for each coral 
 

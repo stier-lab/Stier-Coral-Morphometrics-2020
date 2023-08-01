@@ -488,11 +488,4 @@ save_kable(tbl_s2, here("code/figures/table_s2.html"))
 ```{r pub_table, include = TRUE}
 tbl_s2
 ```
-# Miscellaneous Statistics
-
-```{r stats}
-num_photos <- summary(c(coral_dim$total_photos, december_photo$total_photos))
-num_photos
-
-```
 
